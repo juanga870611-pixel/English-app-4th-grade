@@ -1,14 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, ChevronLeft, ChevronRight, Turtle, Volume2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Turtle, Volume2, XCircle } from 'lucide-react';
 import type { MicroStoryChallenge } from '../../types/curriculum';
+import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
+import {
+  getMicroStoryCheckpointErrorFeedback,
+  getPreAnswerHint,
+  getSuccessReinforcementExample,
+  type BetoFeedbackPayload,
+  type WeekMistakeReviewItem,
+} from '../../utils/pedagogicalFeedback';
 import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
 import { speakEnglish, stopSpeech } from '../../utils/speech';
 
 interface MicroStoryGameProps {
   challenge: MicroStoryChallenge;
+  grammarFocus?: string;
   soundMuted: boolean;
   onComplete: (firstTry: boolean) => void;
   onMistake: (hintEs: string) => void;
+  onMistakeDetail?: (item: WeekMistakeReviewItem) => void;
 }
 
 const SCENE_TONES = {
@@ -20,21 +30,29 @@ const SCENE_TONES = {
 
 export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
   challenge,
+  grammarFocus = '',
   soundMuted,
   onComplete,
   onMistake,
+  onMistakeDetail,
 }) => {
   const [sceneIdx, setSceneIdx] = useState(0);
   const [activeSentenceIdx, setActiveSentenceIdx] = useState<number | null>(null);
   const [showSpanish, setShowSpanish] = useState(false);
   const [answeredCheckpoints, setAnsweredCheckpoints] = useState<Record<string, boolean>>({});
   const [selectedChoices, setSelectedChoices] = useState<Record<string, string>>({});
+  const [wrongChoicesByScene, setWrongChoicesByScene] = useState<Record<string, string[]>>({});
+  const [errorFeedbackByScene, setErrorFeedbackByScene] = useState<
+    Record<string, BetoFeedbackPayload | undefined>
+  >({});
+  const [showHint, setShowHint] = useState(false);
   const [hadMistake, setHadMistake] = useState(false);
 
   const cancelledRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
+    setShowHint(false);
     return () => {
       cancelledRef.current = true;
       stopSpeech();
@@ -44,8 +62,19 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
   const currentScene = challenge.scenes[sceneIdx];
   const isLastScene = sceneIdx === challenge.scenes.length - 1;
   const checkpointPassed = !currentScene.checkpoint || Boolean(answeredCheckpoints[currentScene.id]);
+  const sceneErrorFeedback = errorFeedbackByScene[currentScene.id];
+  const sceneWrongIds = wrongChoicesByScene[currentScene.id] ?? [];
 
-  // Phrase-by-phrase narration with sequential sentence highlighting
+  const preHintPayload = useMemo(
+    () => getPreAnswerHint(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
+  const successPayload = useMemo(
+    () => getSuccessReinforcementExample(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
   const playSceneNarration = (slow: boolean) => {
     stopSpeech();
     cancelledRef.current = false;
@@ -80,10 +109,40 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
     if (optionId === currentScene.checkpoint.correctOptionId) {
       playSuccessChime(soundMuted);
       setAnsweredCheckpoints((prev) => ({ ...prev, [currentScene.id]: true }));
+      setErrorFeedbackByScene((prev) => ({ ...prev, [currentScene.id]: undefined }));
+      setShowHint(false);
     } else {
       setHadMistake(true);
+      setShowHint(false);
       playRetryTone(soundMuted);
+      const chosen = currentScene.checkpoint.options.find((o) => o.id === optionId);
+      const correct = currentScene.checkpoint.options.find(
+        (o) => o.id === currentScene.checkpoint!.correctOptionId
+      );
+
+      setWrongChoicesByScene((prev) => ({
+        ...prev,
+        [currentScene.id]: [...(prev[currentScene.id] ?? []), optionId],
+      }));
+
+      const feedback = getMicroStoryCheckpointErrorFeedback(
+        currentScene,
+        chosen?.text ?? optionId,
+        challenge.hintEs,
+        grammarFocus
+      );
+      setErrorFeedbackByScene((prev) => ({ ...prev, [currentScene.id]: feedback }));
       onMistake(challenge.hintEs);
+
+      onMistakeDetail?.({
+        challengeId: `${challenge.id}-${currentScene.id}`,
+        challengeTypeLabel: 'Microcuento',
+        promptSummaryEs: currentScene.checkpoint.questionEs,
+        studentAnswerEs: chosen?.text ?? optionId,
+        correctAnswerEs: correct?.text ?? '',
+        explanationEs: feedback.explanationEs,
+        example: feedback.example,
+      });
     }
   };
 
@@ -120,7 +179,6 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
         </button>
       </div>
 
-      {/* Scene Progress Dots */}
       <div className="flex items-center gap-2" aria-label="Progreso del cuento">
         {challenge.scenes.map((scene, idx) => (
           <div
@@ -136,7 +194,6 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
         ))}
       </div>
 
-      {/* Illustrated Story Scene */}
       <div className={`rounded-2xl border p-5 sm:p-6 ${SCENE_TONES[currentScene.bgTone]}`}>
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
           <div
@@ -202,10 +259,22 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
       {/* Embedded Comprehension Checkpoint */}
       {currentScene.checkpoint && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-3">
-          <p className="text-xs font-bold text-emerald-700">Pregunta rápida del cuento</p>
-          <p className="font-display text-lg font-bold text-slate-900">
-            {currentScene.checkpoint.questionEs}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-bold text-emerald-700">Pregunta rápida del cuento</p>
+              <p className="mt-0.5 font-display text-lg font-bold text-slate-900">
+                {currentScene.checkpoint.questionEs}
+              </p>
+            </div>
+            {!answeredCheckpoints[currentScene.id] && (
+              <HintExampleButton open={showHint} onToggle={() => setShowHint((v) => !v)} />
+            )}
+          </div>
+
+          {!answeredCheckpoints[currentScene.id] && showHint && (
+            <BetoFeedbackCard payload={preHintPayload} />
+          )}
+
           <div className="space-y-2">
             {currentScene.checkpoint.options.map((opt) => {
               const isSelected = selectedChoices[currentScene.id] === opt.id;
@@ -213,7 +282,8 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
                 answeredCheckpoints[currentScene.id] &&
                 opt.id === currentScene.checkpoint!.correctOptionId;
               const isWrong =
-                isSelected && opt.id !== currentScene.checkpoint!.correctOptionId;
+                (isSelected || sceneWrongIds.includes(opt.id)) &&
+                opt.id !== currentScene.checkpoint!.correctOptionId;
 
               return (
                 <button
@@ -221,7 +291,7 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
                   type="button"
                   disabled={Boolean(answeredCheckpoints[currentScene.id])}
                   onClick={() => handleAnswerCheckpoint(opt.id)}
-                  className={`flex min-h-[48px] w-full items-center rounded-xl border border-b-4 px-4 py-2.5 text-left text-sm font-bold transition-colors sm:text-base ${
+                  className={`flex min-h-[48px] w-full items-center justify-between gap-3 rounded-xl border border-b-4 px-4 py-2.5 text-left text-sm font-bold transition-colors sm:text-base ${
                     isCorrect
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
                       : isWrong
@@ -229,11 +299,21 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
                         : 'border-slate-200 bg-slate-50 text-slate-900 hover:border-sky-300 hover:bg-sky-50'
                   }`}
                 >
-                  {opt.text}
+                  <span>{opt.text}</span>
+                  {isCorrect && <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" aria-hidden="true" />}
+                  {isWrong && <XCircle className="h-5 w-5 text-rose-500 shrink-0" aria-hidden="true" />}
                 </button>
               );
             })}
           </div>
+
+          {!answeredCheckpoints[currentScene.id] && sceneErrorFeedback && (
+            <BetoFeedbackCard payload={sceneErrorFeedback} />
+          )}
+
+          {answeredCheckpoints[currentScene.id] && (
+            <BetoFeedbackCard payload={successPayload} />
+          )}
         </div>
       )}
 

@@ -30,7 +30,7 @@ export const MascotGuide: React.FC<MascotGuideProps> = ({
 
   return (
     <div
-      className={`flex items-center gap-3.5 transition-colors ${containerTone}`}
+      className={`flex items-center gap-3.5 text-left transition-colors ${containerTone}`}
       role="status"
       aria-live="polite"
     >

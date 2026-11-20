@@ -1,7 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Check, HelpCircle } from 'lucide-react';
 import type { WordSearchChallenge } from '../../types/curriculum';
+import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
 import {
+  getPreAnswerHint,
+  getSuccessReinforcementExample,
+  getWordSearchErrorFeedback,
+  type BetoFeedbackPayload,
+  type WeekMistakeReviewItem,
+} from '../../utils/pedagogicalFeedback';
+import {
+  extractWordFromCoords,
   generateWordSearchBoard,
   getLineCoords,
   matchWordSelection,
@@ -12,9 +21,11 @@ import { speakEnglish } from '../../utils/speech';
 
 interface WordSearchGameProps {
   challenge: WordSearchChallenge;
+  grammarFocus?: string;
   soundMuted: boolean;
   onComplete: (firstTry: boolean) => void;
   onMistake: (hintEs: string) => void;
+  onMistakeDetail?: (item: WeekMistakeReviewItem) => void;
 }
 
 function coordKey(c: GridCoord): string {
@@ -23,9 +34,11 @@ function coordKey(c: GridCoord): string {
 
 export const WordSearchGame: React.FC<WordSearchGameProps> = ({
   challenge,
+  grammarFocus = '',
   soundMuted,
   onComplete,
   onMistake,
+  onMistakeDetail,
 }) => {
   const board = useMemo(() => {
     const seed = challenge.id.split('').reduce((acc, ch) => acc * 31 + ch.charCodeAt(0), 7);
@@ -38,16 +51,29 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
 
   const [foundWords, setFoundWords] = useState<string[]>([]);
   const [foundCellKeys, setFoundCellKeys] = useState<Set<string>>(() => new Set());
+  const [wrongCellKeys, setWrongCellKeys] = useState<Set<string>>(() => new Set());
   const [dragStart, setDragStart] = useState<GridCoord | null>(null);
   const [hoverCoord, setHoverCoord] = useState<GridCoord | null>(null);
   const [clickAnchor, setClickAnchor] = useState<GridCoord | null>(null);
   const [lastFoundInfo, setLastFoundInfo] = useState<{ word: string; spanish: string; emoji: string } | null>(null);
   const [hintRevealedWord, setHintRevealedWord] = useState<string | null>(null);
   const [usedHint, setUsedHint] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [errorFeedback, setErrorFeedback] = useState<BetoFeedbackPayload | null>(null);
 
   const targetWordStrings = useMemo(
     () => challenge.targets.map((t) => t.word.toUpperCase()),
     [challenge]
+  );
+
+  const preHintPayload = useMemo(
+    () => getPreAnswerHint(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
+  const successPayload = useMemo(
+    () => getSuccessReinforcementExample(challenge, grammarFocus),
+    [challenge, grammarFocus]
   );
 
   const previewCoords = useMemo(() => {
@@ -63,7 +89,20 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
 
   const tryCommitSelection = (start: GridCoord, end: GridCoord) => {
     const line = getLineCoords(start, end);
-    if (line.length < 2) return false;
+    if (line.length < 2) {
+      // Diagonal/jagged non-straight selection still gives visible feedback!
+      if (start.row !== end.row || start.col !== end.col) {
+        playRetryTone(soundMuted);
+        setWrongCellKeys(new Set([coordKey(start), coordKey(end)]));
+        const remaining = challenge.targets.filter(
+          (t) => !foundWords.includes(t.word.toUpperCase())
+        );
+        const feedback = getWordSearchErrorFeedback('trazo torcido', remaining);
+        setErrorFeedback(feedback);
+        onMistake('Recuerda seleccionar en línea recta horizontal, vertical o diagonal.');
+      }
+      return false;
+    }
 
     const matched = matchWordSelection(
       board.grid,
@@ -81,6 +120,8 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
         line.forEach((c) => next.add(coordKey(c)));
         return next;
       });
+      setWrongCellKeys(new Set());
+      setErrorFeedback(null);
       const meta = challenge.targets.find((t) => t.word.toUpperCase() === matched);
       if (meta) {
         setLastFoundInfo({ word: meta.word, spanish: meta.spanish, emoji: meta.emoji });
@@ -89,21 +130,45 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
       return true;
     } else {
       playRetryTone(soundMuted);
+      setShowHint(false);
+      setWrongCellKeys(new Set(line.map(coordKey)));
+      const formed = extractWordFromCoords(board.grid, line);
+      const remaining = challenge.targets.filter(
+        (t) => !foundWords.includes(t.word.toUpperCase())
+      );
+      const feedback = getWordSearchErrorFeedback(formed, remaining);
+      setErrorFeedback(feedback);
+      onMistake(challenge.hintEs);
+
+      const nextTarget = remaining[0];
+      if (nextTarget) {
+        onMistakeDetail?.({
+          challengeId: challenge.id,
+          challengeTypeLabel: 'Sopa de letras',
+          promptSummaryEs: challenge.promptEs,
+          studentAnswerEs: `Selección "${formed}"`,
+          correctAnswerEs: `${nextTarget.word} (${nextTarget.spanish})`,
+          explanationEs: feedback.explanationEs,
+          example: feedback.example,
+        });
+      }
       return false;
     }
   };
 
   const handleCellPointerDown = (coord: GridCoord) => {
-    // Support click-start then click-end OR drag-start to drag-end
+    setWrongCellKeys(new Set());
     if (clickAnchor && (clickAnchor.row !== coord.row || clickAnchor.col !== coord.col)) {
       const line = getLineCoords(clickAnchor, coord);
       if (line.length >= 2) {
         tryCommitSelection(clickAnchor, coord);
-        setClickAnchor(null);
-        setDragStart(null);
-        setHoverCoord(null);
-        return;
+      } else {
+        tryCommitSelection(clickAnchor, coord);
       }
+      setClickAnchor(null);
+      setDragStart(null);
+      setHoverCoord(null);
+      return;
     }
     setDragStart(coord);
     setHoverCoord(coord);
@@ -118,7 +183,6 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
   const handleCellPointerUp = (coord: GridCoord) => {
     if (!dragStart) return;
     if (dragStart.row === coord.row && dragStart.col === coord.col) {
-      // Single click: toggle click-anchor mode
       if (clickAnchor && clickAnchor.row === coord.row && clickAnchor.col === coord.col) {
         setClickAnchor(null);
       } else {
@@ -152,7 +216,7 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-emerald-700">Sopa de letras · Word Search</p>
           <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
@@ -163,18 +227,23 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleRevealHint}
-          disabled={allFound}
-          className="inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-40 whitespace-nowrap"
-        >
-          <HelpCircle className="h-4 w-4 text-amber-700" aria-hidden="true" />
-          <span>Pista</span>
-        </button>
+        {!allFound && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <HintExampleButton open={showHint} onToggle={() => setShowHint((v) => !v)} />
+            <button
+              type="button"
+              onClick={handleRevealHint}
+              className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 whitespace-nowrap"
+            >
+              <HelpCircle className="h-4 w-4 text-amber-600" aria-hidden="true" />
+              <span>Iluminar 1ª letra</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Discovery celebration banner */}
+      {!allFound && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+
       {lastFoundInfo && (
         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-950">
           <span className="text-2xl" aria-hidden="true">{lastFoundInfo.emoji}</span>
@@ -184,8 +253,9 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
         </div>
       )}
 
+      {!allFound && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
-        {/* Letter Grid */}
         <div
           className="lg:col-span-7 flex justify-center select-none"
           onPointerLeave={() => {
@@ -208,6 +278,7 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
                 const key = coordKey(coord);
                 const isFound = foundCellKeys.has(key);
                 const isPreview = previewKeys.has(key);
+                const isWrongCell = wrongCellKeys.has(key) && !isFound;
                 const isHintStart = hintCoordKey === key && !isFound;
 
                 return (
@@ -225,11 +296,13 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
                     } ${
                       isPreview
                         ? 'bg-sky-500 text-white'
-                        : isFound
-                          ? 'bg-emerald-500 text-white'
-                          : isHintStart
-                            ? 'bg-amber-300 text-amber-950 ring-2 ring-amber-500'
-                            : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                        : isWrongCell
+                          ? 'bg-rose-200 text-rose-950 ring-2 ring-rose-400'
+                          : isFound
+                            ? 'bg-emerald-500 text-white'
+                            : isHintStart
+                              ? 'bg-amber-300 text-amber-950 ring-2 ring-amber-500'
+                              : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
                     }`}
                   >
                     {letter}
@@ -240,7 +313,6 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
           </div>
         </div>
 
-        {/* Target Word Checklist */}
         <div className="lg:col-span-5 space-y-2.5">
           <p className="text-xs font-bold text-slate-500 tabular-nums">
             Palabras encontradas: {foundWords.length} / {challenge.targets.length}
@@ -278,14 +350,17 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
       </div>
 
       {allFound && (
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={() => onComplete(!usedHint)}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
-          >
-            Continuar
-          </button>
+        <div className="space-y-4 pt-2">
+          <BetoFeedbackCard payload={successPayload} />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onComplete(!usedHint)}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
+            >
+              Continuar
+            </button>
+          </div>
         </div>
       )}
     </div>

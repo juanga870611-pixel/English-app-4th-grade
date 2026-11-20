@@ -2,6 +2,15 @@ import React, { useMemo, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import type { WordOrderChallenge } from '../../types/curriculum';
 import { AudioControls } from '../AudioControls';
+import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
+import {
+  getPreAnswerHint,
+  getSuccessReinforcementExample,
+  getWordOrderErrorFeedback,
+  type BetoFeedbackPayload,
+  type WeekMistakeReviewItem,
+  type WordOrderAnalysis,
+} from '../../utils/pedagogicalFeedback';
 import { playFlipSound, playRetryTone, playSuccessChime } from '../../utils/soundFx';
 import { speakEnglish } from '../../utils/speech';
 
@@ -12,16 +21,20 @@ interface WordTile {
 
 interface WordOrderGameProps {
   challenge: WordOrderChallenge;
+  grammarFocus?: string;
   soundMuted: boolean;
   onComplete: (firstTry: boolean) => void;
   onMistake: (hintEs: string) => void;
+  onMistakeDetail?: (item: WeekMistakeReviewItem) => void;
 }
 
 export const WordOrderGame: React.FC<WordOrderGameProps> = ({
   challenge,
+  grammarFocus = '',
   soundMuted,
   onComplete,
   onMistake,
+  onMistakeDetail,
 }) => {
   const initialBank = useMemo<WordTile[]>(() => {
     const words = [
@@ -50,6 +63,19 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
   const [hadMistake, setHadMistake] = useState(false);
   const [solved, setSolved] = useState(false);
   const [draggedTileId, setDraggedTileId] = useState<string | null>(null);
+  const [showHint, setShowHint] = useState(false);
+  const [errorFeedback, setErrorFeedback] = useState<BetoFeedbackPayload | null>(null);
+  const [attemptAnalysis, setAttemptAnalysis] = useState<WordOrderAnalysis | null>(null);
+
+  const preHintPayload = useMemo(
+    () => getPreAnswerHint(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
+  const successPayload = useMemo(
+    () => getSuccessReinforcementExample(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
 
   const selectedTiles = selectedIds
     .map((id) => initialBank.find((t) => t.id === id))
@@ -63,25 +89,48 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
     const tile = initialBank.find((t) => t.id === tileId);
     if (tile) speakEnglish(tile.word);
     setSelectedIds((prev) => [...prev, tileId]);
+    setAttemptAnalysis(null);
   };
 
   const removeTile = (tileId: string) => {
     if (solved) return;
     playFlipSound(soundMuted);
     setSelectedIds((prev) => prev.filter((id) => id !== tileId));
+    setAttemptAnalysis(null);
   };
 
   const handleCheck = () => {
     if (solved) return;
-    const built = selectedTiles.map((t) => t.word).join(' ').trim();
+    const builtWords = selectedTiles.map((t) => t.word);
+    const built = builtWords.join(' ').trim();
     if (built === challenge.correctSentence.trim()) {
       setSolved(true);
+      setErrorFeedback(null);
+      setAttemptAnalysis(null);
+      setShowHint(false);
       playSuccessChime(soundMuted);
       speakEnglish(challenge.correctSentence);
     } else {
       setHadMistake(true);
+      setShowHint(false);
       playRetryTone(soundMuted);
+      const { payload, analysis } = getWordOrderErrorFeedback(
+        challenge,
+        builtWords,
+        grammarFocus
+      );
+      setAttemptAnalysis(analysis);
+      setErrorFeedback(payload);
       onMistake(challenge.hintEs);
+      onMistakeDetail?.({
+        challengeId: challenge.id,
+        challengeTypeLabel: 'Ordenar oración',
+        promptSummaryEs: `${challenge.promptEs} (${challenge.spanishMeaning})`,
+        studentAnswerEs: built || '(sin palabras)',
+        correctAnswerEs: challenge.correctSentence,
+        explanationEs: payload.explanationEs,
+        example: payload.example,
+      });
     }
   };
 
@@ -94,16 +143,24 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-xs font-bold text-indigo-700">Ordenar oraciones · Word Order</p>
-        <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
-          {challenge.promptEs}
-        </h2>
-        <p className="mt-1 text-sm font-medium text-slate-600">
-          Meta en español: <span className="font-bold text-slate-900">&ldquo;{challenge.spanishMeaning}&rdquo;</span>
-        </p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-indigo-700">Ordenar oraciones · Word Order</p>
+          <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
+            {challenge.promptEs}
+          </h2>
+          <p className="mt-1 text-sm font-medium text-slate-600">
+            Meta en español: <span className="font-bold text-slate-900">&ldquo;{challenge.spanishMeaning}&rdquo;</span>
+          </p>
+        </div>
+
+        {!solved && (
+          <HintExampleButton open={showHint} onToggle={() => setShowHint((v) => !v)} />
+        )}
       </div>
+
+      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} />}
 
       {/* Answer Tray (supports tap or drag-and-drop) */}
       <div
@@ -113,7 +170,9 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
         className={`min-h-[92px] rounded-2xl border-2 border-dashed p-4 transition-colors ${
           solved
             ? 'border-emerald-500 bg-emerald-50'
-            : 'border-slate-300 bg-white'
+            : attemptAnalysis
+              ? 'border-rose-300 bg-rose-50/40'
+              : 'border-slate-300 bg-white'
         }`}
       >
         {selectedTiles.length === 0 ? (
@@ -121,23 +180,51 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
             Toca o arrastra las fichas de abajo en el orden correcto...
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2.5">
-            {selectedTiles.map((tile) => (
-              <button
-                key={tile.id}
-                type="button"
-                disabled={solved}
-                onClick={() => removeTile(tile.id)}
-                aria-label={`Quitar palabra ${tile.word}`}
-                className={`min-h-[44px] rounded-xl border border-b-4 px-4 py-2 font-display text-base font-bold transition-transform active:translate-y-0.5 ${
-                  solved
-                    ? 'border-emerald-600 bg-emerald-600 text-white'
-                    : 'border-sky-700 bg-sky-500 text-white hover:bg-sky-600'
-                }`}
-              >
-                {tile.word}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {selectedTiles.map((tile, idx) => {
+              const status = attemptAnalysis?.tileStatuses[idx];
+              const isTileWrong = !solved && (status === 'wrong_position' || status === 'distractor');
+              const isTileRight = !solved && status === 'correct';
+
+              return (
+                <button
+                  key={tile.id}
+                  type="button"
+                  disabled={solved}
+                  onClick={() => removeTile(tile.id)}
+                  aria-label={`Quitar palabra ${tile.word}${
+                    status === 'distractor'
+                      ? ' (palabra sobrante)'
+                      : status === 'wrong_position'
+                        ? ' (posición incorrecta)'
+                        : ''
+                  }`}
+                  className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-b-4 px-4 py-2 font-display text-base font-bold transition-transform active:translate-y-0.5 ${
+                    solved
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : isTileWrong
+                        ? 'border-rose-500 bg-rose-100 text-rose-950'
+                        : isTileRight
+                          ? 'border-emerald-600 bg-emerald-500 text-white'
+                          : 'border-sky-700 bg-sky-500 text-white hover:bg-sky-600'
+                  }`}
+                >
+                  <span>{tile.word}</span>
+                  {status === 'distractor' && (
+                    <span className="text-[11px] font-extrabold text-rose-700">· sobra</span>
+                  )}
+                  {status === 'wrong_position' && (
+                    <span className="text-[11px] font-extrabold text-rose-700">· orden</span>
+                  )}
+                </button>
+              );
+            })}
+
+            {!solved && attemptAnalysis && attemptAnalysis.missingWordsCount > 0 && (
+              <span className="inline-flex min-h-[44px] items-center rounded-xl border-2 border-dashed border-rose-400 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-800">
+                + falta(n) {attemptAnalysis.missingWordsCount} palabra(s)
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -149,7 +236,10 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
           {!solved && selectedIds.length > 0 && (
             <button
               type="button"
-              onClick={() => setSelectedIds([])}
+              onClick={() => {
+                setSelectedIds([]);
+                setAttemptAnalysis(null);
+              }}
               className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-900"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -175,21 +265,26 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
         </div>
       </div>
 
+      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+
       {solved ? (
-        <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <AudioControls
-            text={challenge.correctSentence}
-            labelNormal="Escuchar oración"
-            labelSlow="Lento"
-            compact
-          />
-          <button
-            type="button"
-            onClick={() => onComplete(!hadMistake)}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
-          >
-            Continuar
-          </button>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <AudioControls
+              text={challenge.correctSentence}
+              labelNormal="Escuchar oración"
+              labelSlow="Lento"
+              compact
+            />
+            <button
+              type="button"
+              onClick={() => onComplete(!hadMistake)}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
+            >
+              Continuar
+            </button>
+          </div>
+          <BetoFeedbackCard payload={successPayload} />
         </div>
       ) : (
         <div className="flex justify-end">

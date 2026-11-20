@@ -1,25 +1,51 @@
-import React, { useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import type { ListeningChallenge } from '../../types/curriculum';
 import { AudioControls } from '../AudioControls';
+import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
+import {
+  getPreAnswerHint,
+  getSuccessReinforcementExample,
+  getVisualChoiceErrorFeedback,
+  getWordBankErrorFeedback,
+  type BetoFeedbackPayload,
+  type WeekMistakeReviewItem,
+} from '../../utils/pedagogicalFeedback';
 import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
 
 interface ListeningGameProps {
   challenge: ListeningChallenge;
+  grammarFocus?: string;
   soundMuted: boolean;
   onComplete: (firstTry: boolean) => void;
   onMistake: (hintEs: string) => void;
+  onMistakeDetail?: (item: WeekMistakeReviewItem) => void;
 }
 
 export const ListeningGame: React.FC<ListeningGameProps> = ({
   challenge,
+  grammarFocus = '',
   soundMuted,
   onComplete,
   onMistake,
+  onMistakeDetail,
 }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [wrongAttempts, setWrongAttempts] = useState<Set<string>>(() => new Set());
   const [hadMistake, setHadMistake] = useState(false);
   const [solved, setSolved] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [errorFeedback, setErrorFeedback] = useState<BetoFeedbackPayload | null>(null);
+
+  const preHintPayload = useMemo(
+    () => getPreAnswerHint(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
+  const successPayload = useMemo(
+    () => getSuccessReinforcementExample(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
 
   const handleSelectVisual = (optionId: string) => {
     if (solved) return;
@@ -27,11 +53,39 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
 
     if (optionId === challenge.correctOptionId) {
       setSolved(true);
+      setErrorFeedback(null);
+      setShowHint(false);
       playSuccessChime(soundMuted);
     } else {
       setHadMistake(true);
+      setShowHint(false);
+      setWrongAttempts((prev) => new Set(prev).add(optionId));
       playRetryTone(soundMuted);
+
+      const chosen = challenge.options?.find((o) => o.id === optionId);
+      const correct = challenge.options?.find((o) => o.id === challenge.correctOptionId);
+
+      const feedback = getVisualChoiceErrorFeedback({
+        chosenLabel: chosen?.label ?? optionId,
+        chosenSpanish: chosen?.spanish ?? '',
+        correctLabel: correct?.label ?? '',
+        correctSpanish: correct?.spanish ?? '',
+        contextText: challenge.audioText,
+        hintEs: challenge.hintEs,
+        grammarFocus,
+      });
+
+      setErrorFeedback(feedback);
       onMistake(challenge.hintEs);
+      onMistakeDetail?.({
+        challengeId: challenge.id,
+        challengeTypeLabel: 'Comprensión auditiva',
+        promptSummaryEs: challenge.promptEs,
+        studentAnswerEs: chosen ? `${chosen.label} (${chosen.spanish})` : optionId,
+        correctAnswerEs: correct ? `${correct.label} (${correct.spanish})` : challenge.audioText,
+        explanationEs: feedback.explanationEs,
+        example: feedback.example,
+      });
     }
   };
 
@@ -41,21 +95,45 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
 
     if (word === challenge.correctWord) {
       setSolved(true);
+      setErrorFeedback(null);
+      setShowHint(false);
       playSuccessChime(soundMuted);
     } else {
       setHadMistake(true);
+      setShowHint(false);
+      setWrongAttempts((prev) => new Set(prev).add(word));
       playRetryTone(soundMuted);
+
+      const feedback = getWordBankErrorFeedback(challenge, word, grammarFocus);
+      setErrorFeedback(feedback);
       onMistake(challenge.hintEs);
+
+      const parts = challenge.sentenceParts ?? ['', ''];
+      onMistakeDetail?.({
+        challengeId: challenge.id,
+        challengeTypeLabel: 'Completar espacio escuchado',
+        promptSummaryEs: challenge.promptEs,
+        studentAnswerEs: `${parts[0]}${word}${parts[1]}`,
+        correctAnswerEs: `${parts[0]}${challenge.correctWord ?? ''}${parts[1]}`,
+        explanationEs: feedback.explanationEs,
+        example: feedback.example,
+      });
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-xs font-bold text-sky-700">Comprensión auditiva · Listening</p>
-        <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
-          {challenge.promptEs}
-        </h2>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-sky-700">Comprensión auditiva · Listening</p>
+          <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
+            {challenge.promptEs}
+          </h2>
+        </div>
+
+        {!solved && (
+          <HintExampleButton open={showHint} onToggle={() => setShowHint((v) => !v)} />
+        )}
       </div>
 
       {/* Speech Synthesis Player */}
@@ -66,13 +144,16 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
         <AudioControls text={challenge.audioText} />
       </div>
 
+      {/* Optional Pre-Answer Hint with Similar Example */}
+      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+
       {/* Mode 1: Visual Card Choice */}
       {challenge.mode === 'visual_choice' && challenge.options && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {challenge.options.map((opt) => {
             const isSelected = selectedId === opt.id;
             const isCorrect = solved && opt.id === challenge.correctOptionId;
-            const isWrong = isSelected && opt.id !== challenge.correctOptionId;
+            const isWrong = (isSelected || wrongAttempts.has(opt.id)) && opt.id !== challenge.correctOptionId;
 
             return (
               <button
@@ -95,8 +176,14 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                 <div className="min-w-0 flex-1">
                   <p className="font-display text-base font-bold text-slate-900">{opt.label}</p>
                   <p className="text-xs font-medium text-slate-500">{opt.spanish}</p>
+                  {isWrong && (
+                    <p className="mt-1 text-[11px] font-bold text-rose-700">
+                      Opción incorrecta · Intenta otra
+                    </p>
+                  )}
                 </div>
                 {isCorrect && <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600" aria-hidden="true" />}
+                {isWrong && <XCircle className="h-6 w-6 shrink-0 text-rose-500" aria-hidden="true" />}
               </button>
             );
           })}
@@ -113,7 +200,9 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                 className={`mx-1.5 inline-block min-w-[120px] rounded-xl border-2 px-3 py-1 font-mono text-lg ${
                   solved
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                    : 'border-dashed border-sky-400 bg-sky-50 text-sky-900'
+                    : selectedId && selectedId !== challenge.correctWord
+                      ? 'border-rose-400 bg-rose-50 text-rose-800'
+                      : 'border-dashed border-sky-400 bg-sky-50 text-sky-900'
                 }`}
               >
                 {selectedId ?? '_______'}
@@ -126,7 +215,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
             {challenge.wordBank.map((word) => {
               const isSelected = selectedId === word;
               const isCorrect = solved && word === challenge.correctWord;
-              const isWrong = isSelected && word !== challenge.correctWord;
+              const isWrong = (isSelected || wrongAttempts.has(word)) && word !== challenge.correctWord;
 
               return (
                 <button
@@ -134,7 +223,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                   type="button"
                   disabled={solved}
                   onClick={() => handleSelectWord(word)}
-                  className={`min-h-[48px] rounded-xl border border-b-4 px-5 py-2.5 font-display text-base font-bold transition-transform active:translate-y-0.5 ${
+                  className={`inline-flex min-h-[48px] items-center gap-1.5 rounded-xl border border-b-4 px-5 py-2.5 font-display text-base font-bold transition-transform active:translate-y-0.5 ${
                     isCorrect
                       ? 'border-emerald-600 bg-emerald-600 text-white'
                       : isWrong
@@ -142,7 +231,9 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                         : 'border-slate-300 bg-white text-slate-900 hover:border-sky-400 hover:bg-sky-50'
                   }`}
                 >
-                  {word}
+                  <span>{word}</span>
+                  {isWrong && <XCircle className="h-4 w-4 text-rose-600 shrink-0" aria-hidden="true" />}
+                  {isCorrect && <CheckCircle2 className="h-4 w-4 text-white shrink-0" aria-hidden="true" />}
                 </button>
               );
             })}
@@ -150,15 +241,22 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
         </div>
       )}
 
+      {/* Beto Immediate Error Feedback Card */}
+      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+
+      {/* Success Everyday Reinforcement + Continue */}
       {solved && (
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={() => onComplete(!hadMistake)}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700 active:translate-y-0.5"
-          >
-            Continuar
-          </button>
+        <div className="space-y-4 pt-1">
+          <BetoFeedbackCard payload={successPayload} />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onComplete(!hadMistake)}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700 active:translate-y-0.5"
+            >
+              Continuar
+            </button>
+          </div>
         </div>
       )}
     </div>

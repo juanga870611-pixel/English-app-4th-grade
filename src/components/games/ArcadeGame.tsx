@@ -1,23 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Heart, Play, RotateCcw, Trophy } from 'lucide-react';
-import type { ArcadeChallenge } from '../../types/curriculum';
+import type { ArcadeChallenge, ArcadeItem } from '../../types/curriculum';
+import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
+import {
+  getArcadeErrorFeedback,
+  getPreAnswerHint,
+  getSuccessReinforcementExample,
+  type BetoFeedbackPayload,
+  type WeekMistakeReviewItem,
+} from '../../utils/pedagogicalFeedback';
 import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
 import { speakEnglish } from '../../utils/speech';
 
 interface ArcadeGameProps {
   challenge: ArcadeChallenge;
+  grammarFocus?: string;
   soundMuted: boolean;
   onComplete: (firstTry: boolean) => void;
   onMistake: (hintEs: string) => void;
+  onMistakeDetail?: (item: WeekMistakeReviewItem) => void;
 }
 
 type ArcadeState = 'READY' | 'PLAYING' | 'WON' | 'LOST';
 
 export const ArcadeGame: React.FC<ArcadeGameProps> = ({
   challenge,
+  grammarFocus = '',
   soundMuted,
   onComplete,
   onMistake,
+  onMistakeDetail,
 }) => {
   const [gameState, setGameState] = useState<ArcadeState>('READY');
   const [score, setScore] = useState(0);
@@ -27,10 +39,15 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
   const [itemIndex, setItemIndex] = useState(0);
   const [feedbackFlash, setFeedbackFlash] = useState<'correct' | 'wrong' | null>(null);
   const [hadMistake, setHadMistake] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [pendingError, setPendingError] = useState<{
+    item: ArcadeItem;
+    nextLives: number;
+    payload: BetoFeedbackPayload;
+  } | null>(null);
 
   const deck = useMemo(() => {
     const items = [...challenge.items];
-    // Deterministic shuffle
     let seed = challenge.id.split('').reduce((a, c) => a + c.charCodeAt(0), 29);
     const rand = () => {
       seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -45,6 +62,16 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
 
   const currentItem = deck[itemIndex % deck.length];
 
+  const preHintPayload = useMemo(
+    () => getPreAnswerHint(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
+  const successPayload = useMemo(
+    () => getSuccessReinforcementExample(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
   const startOrRestart = () => {
     setScore(0);
     setLives(3);
@@ -52,12 +79,14 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
     setTimeLeft(challenge.timeLimitSec);
     setItemIndex(0);
     setFeedbackFlash(null);
+    setPendingError(null);
+    setShowHint(false);
     setGameState('PLAYING');
   };
 
-  // Timer loop
+  // Timer loop pauses while Beto explains an error or hint!
   useEffect(() => {
-    if (gameState !== 'PLAYING') return;
+    if (gameState !== 'PLAYING' || pendingError || showHint) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -68,11 +97,22 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState]);
+  }, [gameState, pendingError, showHint]);
+
+  const handleContinueAfterError = () => {
+    if (!pendingError) return;
+    const { nextLives } = pendingError;
+    setPendingError(null);
+    setFeedbackFlash(null);
+    setItemIndex((i) => i + 1);
+    if (nextLives <= 0) {
+      setGameState('LOST');
+    }
+  };
 
   const handleSort = useCallback(
     (chosenBucket: 'left' | 'right') => {
-      if (gameState !== 'PLAYING' || !currentItem) return;
+      if (gameState !== 'PLAYING' || !currentItem || pendingError) return;
 
       if (currentItem.bucket === chosenBucket) {
         playSuccessChime(soundMuted);
@@ -90,27 +130,48 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
         }
       } else {
         playRetryTone(soundMuted);
+        setShowHint(false);
         setHadMistake(true);
-        onMistake(challenge.hintEs);
         setFeedbackFlash('wrong');
-        setTimeout(() => setFeedbackFlash(null), 280);
-
         setCombo(0);
+
         const nextLives = lives - 1;
         setLives(nextLives);
-        setItemIndex((i) => i + 1);
 
-        if (nextLives <= 0) {
-          setGameState('LOST');
-        }
+        const payload = getArcadeErrorFeedback(currentItem, chosenBucket, challenge);
+        setPendingError({ item: currentItem, nextLives, payload });
+        onMistake(challenge.hintEs);
+
+        const wrongBucket = chosenBucket === 'left' ? challenge.leftBucket : challenge.rightBucket;
+        const rightBucket = currentItem.bucket === 'left' ? challenge.leftBucket : challenge.rightBucket;
+
+        onMistakeDetail?.({
+          challengeId: challenge.id,
+          challengeTypeLabel: 'Mini-juego Arcade',
+          promptSummaryEs: challenge.titleEs,
+          studentAnswerEs: `${currentItem.word} -> ${wrongBucket.labelEs}`,
+          correctAnswerEs: `${currentItem.word} -> ${rightBucket.labelEs}`,
+          explanationEs: payload.explanationEs,
+          example: payload.example,
+        });
       }
     },
-    [gameState, currentItem, soundMuted, score, challenge.targetScore, challenge.hintEs, lives, onMistake]
+    [
+      gameState,
+      currentItem,
+      pendingError,
+      soundMuted,
+      score,
+      challenge,
+      lives,
+      onMistake,
+      onMistakeDetail,
+    ]
   );
 
   // Keyboard shortcuts (Left/Right arrows) for Chromebook lab play
   useEffect(() => {
-    if (gameState !== 'PLAYING') return;
+    if (gameState !== 'PLAYING' || pendingError) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -122,17 +183,27 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [gameState, handleSort]);
+  }, [gameState, pendingError, handleSort]);
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-xs font-bold text-rose-700">Mini-juego Arcade · Clasificación rápida</p>
-        <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
-          {challenge.titleEs}
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">{challenge.promptEs}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-rose-700">Mini-juego Arcade · Clasificación rápida</p>
+          <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
+            {challenge.titleEs}
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">{challenge.promptEs}</p>
+        </div>
+
+        {(gameState === 'READY' || gameState === 'PLAYING') && (
+          <HintExampleButton open={showHint} onToggle={() => setShowHint((v) => !v)} />
+        )}
       </div>
+
+      {showHint && (gameState === 'READY' || gameState === 'PLAYING') && (
+        <BetoFeedbackCard payload={preHintPayload} />
+      )}
 
       {/* Compact Game HUD */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
@@ -152,10 +223,12 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
           <span className="text-emerald-700">
             Meta: {score} / {challenge.targetScore}
           </span>
-          {combo >= 2 && (
-            <span className="text-amber-600">Combo x{combo}</span>
-          )}
-          <span className={`inline-flex items-center gap-1 ${timeLeft <= 10 ? 'text-rose-600' : 'text-slate-700'}`}>
+          {combo >= 2 && <span className="text-amber-600">Combo x{combo}</span>}
+          <span
+            className={`inline-flex items-center gap-1 ${
+              timeLeft <= 10 ? 'text-rose-600' : 'text-slate-700'
+            }`}
+          >
             <Clock className="h-4 w-4" aria-hidden="true" />
             {timeLeft}s
           </span>
@@ -190,12 +263,11 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
       {/* PLAYING STATE */}
       {gameState === 'PLAYING' && currentItem && (
         <div className="space-y-5">
-          {/* Active Card */}
           <div
             className={`mx-auto max-w-sm rounded-2xl border-2 p-6 text-center transition-transform ${
               feedbackFlash === 'correct'
                 ? 'scale-105 border-emerald-500 bg-emerald-50'
-                : feedbackFlash === 'wrong'
+                : feedbackFlash === 'wrong' || pendingError
                   ? 'border-rose-500 bg-rose-50'
                   : 'border-slate-200 bg-white shadow-sm'
             }`}
@@ -209,28 +281,39 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
             <p className="mt-1 text-sm font-medium text-slate-500">{currentItem.spanish}</p>
           </div>
 
-          {/* Two Classification Buckets */}
-          <div className="grid grid-cols-2 gap-3.5">
-            <button
-              type="button"
-              onClick={() => handleSort('left')}
-              className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-4 border-emerald-600 bg-emerald-50 p-4 text-emerald-950 transition-transform hover:bg-emerald-100 active:translate-y-0.5"
-            >
-              <span className="text-3xl" aria-hidden="true">{challenge.leftBucket.emoji}</span>
-              <span className="font-display text-base font-extrabold">{challenge.leftBucket.labelEn}</span>
-              <span className="text-xs font-semibold text-emerald-800">{challenge.leftBucket.labelEs}</span>
-            </button>
+          {pendingError ? (
+            <BetoFeedbackCard
+              payload={pendingError.payload}
+              actionLabel={
+                pendingError.nextLives <= 0
+                  ? 'Ver resultado e intentar de nuevo'
+                  : 'Entendido, seguir jugando'
+              }
+              onAction={handleContinueAfterError}
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-3.5">
+              <button
+                type="button"
+                onClick={() => handleSort('left')}
+                className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-4 border-emerald-600 bg-emerald-50 p-4 text-emerald-950 transition-transform hover:bg-emerald-100 active:translate-y-0.5"
+              >
+                <span className="text-3xl" aria-hidden="true">{challenge.leftBucket.emoji}</span>
+                <span className="font-display text-base font-extrabold">{challenge.leftBucket.labelEn}</span>
+                <span className="text-xs font-semibold text-emerald-800">{challenge.leftBucket.labelEs}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleSort('right')}
-              className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-4 border-rose-500 bg-rose-50 p-4 text-rose-950 transition-transform hover:bg-rose-100 active:translate-y-0.5"
-            >
-              <span className="text-3xl" aria-hidden="true">{challenge.rightBucket.emoji}</span>
-              <span className="font-display text-base font-extrabold">{challenge.rightBucket.labelEn}</span>
-              <span className="text-xs font-semibold text-rose-800">{challenge.rightBucket.labelEs}</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => handleSort('right')}
+                className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-4 border-rose-500 bg-rose-50 p-4 text-rose-950 transition-transform hover:bg-rose-100 active:translate-y-0.5"
+              >
+                <span className="text-3xl" aria-hidden="true">{challenge.rightBucket.emoji}</span>
+                <span className="font-display text-base font-extrabold">{challenge.rightBucket.labelEn}</span>
+                <span className="text-xs font-semibold text-rose-800">{challenge.rightBucket.labelEs}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -256,18 +339,21 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
 
       {/* WON STATE */}
       {gameState === 'WON' && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center space-y-4">
-          <Trophy className="mx-auto h-10 w-10 text-amber-500" aria-hidden="true" />
-          <p className="font-display text-xl font-extrabold text-emerald-950">
-            ¡Reto Arcade superado! ({score}/{challenge.targetScore})
-          </p>
-          <button
-            type="button"
-            onClick={() => onComplete(!hadMistake)}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
-          >
-            Continuar
-          </button>
+        <div className="space-y-4">
+          <BetoFeedbackCard payload={successPayload} />
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center space-y-4">
+            <Trophy className="mx-auto h-10 w-10 text-amber-500" aria-hidden="true" />
+            <p className="font-display text-xl font-extrabold text-emerald-950">
+              ¡Reto Arcade superado! ({score}/{challenge.targetScore})
+            </p>
+            <button
+              type="button"
+              onClick={() => onComplete(!hadMistake)}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
+            >
+              Continuar
+            </button>
+          </div>
         </div>
       )}
     </div>

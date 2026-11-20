@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, RotateCcw, Star, Trophy, Unlock } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { ArrowLeft, ArrowRight, BookOpenCheck, RotateCcw, Star, Trophy, Unlock, Volume2 } from 'lucide-react';
 import type { WeekLesson } from '../types/curriculum';
+import type { WeekMistakeReviewItem } from '../utils/pedagogicalFeedback';
 import { PASS_ACCURACY_THRESHOLD } from '../utils/progress';
 import { playVictoryFanfare } from '../utils/soundFx';
-import { stopSpeech } from '../utils/speech';
+import { speakEnglish, stopSpeech } from '../utils/speech';
 import { MascotGuide, type MascotMood } from './MascotGuide';
 import { ListeningGame } from './games/ListeningGame';
 import { MemoryMatchGame } from './games/MemoryMatchGame';
@@ -37,6 +38,7 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
 }) => {
   const [challengeIdx, setChallengeIdx] = useState(0);
   const [firstTryCount, setFirstTryCount] = useState(0);
+  const [mistakesLog, setMistakesLog] = useState<WeekMistakeReviewItem[]>([]);
   const [mascotState, setMascotState] = useState<{
     mood: MascotMood;
     message: string;
@@ -58,13 +60,21 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
   const totalChallenges = week.challenges.length;
   const currentChallenge = week.challenges[challengeIdx];
 
-  const handleMistake = (hintEs: string) => {
+  const handleMistake = useCallback((hintEs: string) => {
     setMascotState({
       mood: 'encouraging',
-      message: '¡Casi! Inténtalo una vez más sin afán.',
+      message: '¡Casi! Lee la explicación de Beto abajo e inténtalo de nuevo.',
       subMessage: hintEs,
     });
-  };
+  }, []);
+
+  const handleRecordMistakeDetail = useCallback((item: WeekMistakeReviewItem) => {
+    setMistakesLog((prev) => {
+      // Keep the latest distinct mistake per challengeId so the final review card stays focused and readable
+      const filtered = prev.filter((m) => m.challengeId !== item.challengeId);
+      return [...filtered, item];
+    });
+  }, []);
 
   const handleStepComplete = (firstTry: boolean) => {
     stopSpeech();
@@ -81,7 +91,6 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
         subMessage: `Reto ${challengeIdx + 2} de ${totalChallenges}`,
       });
     } else {
-      // Calculate final week accuracy (weighted fairly so completing all challenges gives strong base + bonus for first-try accuracy)
       const accuracy = Math.round(
         50 + (nextFirstTryCount / Math.max(1, totalChallenges)) * 50
       );
@@ -98,6 +107,7 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
     stopSpeech();
     setChallengeIdx(0);
     setFirstTryCount(0);
+    setMistakesLog([]);
     setSummary(null);
     setMascotState({
       mood: 'neutral',
@@ -125,7 +135,6 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
             <p className="mt-1 text-sm text-slate-600">{week.titleEs}</p>
           </div>
 
-          {/* Stars Earned */}
           <div className="flex justify-center gap-3" aria-label={`Ganaste ${summary.starsEarned} de 3 estrellas`}>
             {[1, 2, 3].map((s) => (
               <Star
@@ -140,7 +149,6 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
             ))}
           </div>
 
-          {/* Metrics Grid */}
           <div className="grid grid-cols-2 gap-3.5">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-bold text-slate-500">Precisión</p>
@@ -184,6 +192,75 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
                 : '¡Cada intento te hace más fuerte en inglés!'
             }
           />
+
+          {/* Tarjeta de repaso comparando lo que respondió frente a la forma correcta */}
+          {mistakesLog.length > 0 && (
+            <section
+              aria-label="Tarjeta de repaso de errores con Beto"
+              className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:p-5 text-left space-y-4"
+            >
+              <div className="flex items-center gap-2">
+                <BookOpenCheck className="h-5 w-5 text-amber-700 shrink-0" aria-hidden="true" />
+                <div>
+                  <h2 className="font-display text-base font-extrabold text-slate-900 sm:text-lg">
+                    Tarjeta de repaso con Beto ({mistakesLog.length})
+                  </h2>
+                  <p className="text-xs text-slate-600">
+                    Compara lo que respondiste antes con la forma correcta y escucha cada ejemplo:
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {mistakesLog.map((item) => (
+                  <div
+                    key={item.challengeId}
+                    className="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
+                  >
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-500">
+                        {item.challengeTypeLabel}
+                      </p>
+                      <p className="text-sm font-bold text-slate-900">{item.promptSummaryEs}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                        <p className="text-[11px] font-bold text-rose-700">Lo que respondiste</p>
+                        <p className="mt-0.5 text-sm font-bold text-rose-950">
+                          {item.studentAnswerEs}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                        <p className="text-[11px] font-bold text-emerald-700">Forma correcta</p>
+                        <p className="mt-0.5 text-sm font-bold text-emerald-950">
+                          {item.correctAnswerEs}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs leading-relaxed text-slate-700">{item.explanationEs}</p>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-900">{item.example.en}</p>
+                        <p className="text-[11px] text-slate-600">{item.example.es}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => speakEnglish(item.example.en)}
+                        aria-label={`Escuchar ejemplo de repaso: ${item.example.en}`}
+                        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-sky-300 bg-white px-2.5 py-1 text-xs font-bold text-sky-900 hover:bg-sky-50 shrink-0"
+                      >
+                        <Volume2 className="h-3.5 w-3.5 text-sky-700" aria-hidden="true" />
+                        <span>Escuchar</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <button
@@ -267,63 +344,77 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
           <ListeningGame
             key={currentChallenge.id}
             challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
         {currentChallenge.type === 'memory' && (
           <MemoryMatchGame
             key={currentChallenge.id}
             challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
         {currentChallenge.type === 'reading' && (
           <ReadingGame
             key={currentChallenge.id}
             challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
         {currentChallenge.type === 'word_search' && (
           <WordSearchGame
             key={currentChallenge.id}
             challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
         {currentChallenge.type === 'word_order' && (
           <WordOrderGame
             key={currentChallenge.id}
             challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
         {currentChallenge.type === 'micro_story' && (
           <MicroStoryGame
             key={currentChallenge.id}
             challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
         {currentChallenge.type === 'arcade' && (
           <ArcadeGame
             key={currentChallenge.id}
             challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
       </section>

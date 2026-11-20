@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Volume2 } from 'lucide-react';
+import { Volume2, XCircle } from 'lucide-react';
 import type { MemoryChallenge } from '../../types/curriculum';
+import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
+import {
+  getMemoryMismatchFeedback,
+  getPreAnswerHint,
+  getSuccessReinforcementExample,
+  type BetoFeedbackPayload,
+  type WeekMistakeReviewItem,
+} from '../../utils/pedagogicalFeedback';
 import { playFlipSound, playRetryTone, playSuccessChime } from '../../utils/soundFx';
 import { speakEnglish } from '../../utils/speech';
 
@@ -15,16 +23,20 @@ interface MemoryCard {
 
 interface MemoryMatchGameProps {
   challenge: MemoryChallenge;
+  grammarFocus?: string;
   soundMuted: boolean;
   onComplete: (firstTry: boolean) => void;
   onMistake: (hintEs: string) => void;
+  onMistakeDetail?: (item: WeekMistakeReviewItem) => void;
 }
 
 export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
   challenge,
+  grammarFocus = '',
   soundMuted,
   onComplete,
   onMistake,
+  onMistakeDetail,
 }) => {
   const cards = useMemo<MemoryCard[]>(() => {
     const raw: MemoryCard[] = [];
@@ -47,7 +59,6 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
       });
     });
 
-    // Deterministic-friendly shuffle seeded by challenge id
     let seed = challenge.id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 17);
     const nextRand = () => {
       seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -62,11 +73,24 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
   }, [challenge]);
 
   const [flippedUids, setFlippedUids] = useState<string[]>([]);
+  const [mismatchUids, setMismatchUids] = useState<string[]>([]);
   const [matchedPairIds, setMatchedPairIds] = useState<string[]>([]);
   const [lockedBoard, setLockedBoard] = useState(false);
   const [mistakeCount, setMistakeCount] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+  const [errorFeedback, setErrorFeedback] = useState<BetoFeedbackPayload | null>(null);
 
   const allMatched = matchedPairIds.length === challenge.pairs.length;
+
+  const preHintPayload = useMemo(
+    () => getPreAnswerHint(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
+  const successPayload = useMemo(
+    () => getSuccessReinforcementExample(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
 
   useEffect(() => {
     if (flippedUids.length !== 2) return;
@@ -83,31 +107,65 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
         playSuccessChime(soundMuted);
         setMatchedPairIds((prev) => [...prev, firstCard.pairId]);
         setFlippedUids([]);
+        setMismatchUids([]);
+        setErrorFeedback(null);
         setLockedBoard(false);
       }, 360);
       return () => clearTimeout(timer);
     } else {
       const timer = setTimeout(() => {
         playRetryTone(soundMuted);
+        setShowHint(false);
         setMistakeCount((m) => m + 1);
-        if (mistakeCount >= 3) {
-          onMistake(challenge.hintEs);
-        }
-        setFlippedUids([]);
+        setMismatchUids([firstUid, secondUid]);
         setLockedBoard(false);
-      }, 850);
+
+        const feedback = getMemoryMismatchFeedback(
+          firstCard.word,
+          firstCard.spanish,
+          secondCard.word,
+          secondCard.spanish
+        );
+        setErrorFeedback(feedback);
+        onMistake(challenge.hintEs);
+        onMistakeDetail?.({
+          challengeId: challenge.id,
+          challengeTypeLabel: 'Juego de memoria',
+          promptSummaryEs: challenge.promptEs,
+          studentAnswerEs: `${firstCard.word} (${firstCard.spanish}) + ${secondCard.word} (${secondCard.spanish})`,
+          correctAnswerEs: `${firstCard.word} = ${firstCard.spanish}`,
+          explanationEs: feedback.explanationEs,
+          example: feedback.example,
+        });
+      }, 420);
       return () => clearTimeout(timer);
     }
-  }, [flippedUids, cards, soundMuted, challenge.hintEs, mistakeCount, onMistake]);
+  }, [flippedUids, cards, soundMuted, challenge.hintEs, challenge.id, challenge.promptEs, onMistake, onMistakeDetail]);
+
+  const dismissMismatchAndContinue = () => {
+    setMismatchUids([]);
+    setFlippedUids([]);
+  };
 
   const handleFlip = (card: MemoryCard) => {
     if (lockedBoard) return;
     if (matchedPairIds.includes(card.pairId)) return;
+
+    // If two mismatched cards are currently shown in red, clicking any new unflipped card flips the old mismatch back cleanly
+    if (mismatchUids.length > 0) {
+      if (mismatchUids.includes(card.uid)) return;
+      setMismatchUids([]);
+      setFlippedUids([card.uid]);
+      playFlipSound(soundMuted);
+      if (card.kind === 'word' || challenge.mode === 'audio_word') {
+        speakEnglish(card.word);
+      }
+      return;
+    }
+
     if (flippedUids.includes(card.uid)) return;
 
     playFlipSound(soundMuted);
-
-    // Speak English word when flipping a word card or audio cue card
     if (card.kind === 'word' || challenge.mode === 'audio_word') {
       speakEnglish(card.word);
     }
@@ -119,22 +177,29 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-emerald-700">Juego de memoria · Memory Match</p>
           <h2 className="mt-1 font-display text-xl font-extrabold text-slate-900 sm:text-2xl">
             {challenge.promptEs}
           </h2>
+          <p className="mt-1 text-sm font-bold text-slate-600 tabular-nums">
+            Parejas: {matchedPairIds.length} / {challenge.pairs.length}
+          </p>
         </div>
-        <p className="text-sm font-bold text-slate-600 tabular-nums">
-          Parejas: {matchedPairIds.length} / {challenge.pairs.length}
-        </p>
+
+        {!allMatched && (
+          <HintExampleButton open={showHint} onToggle={() => setShowHint((v) => !v)} />
+        )}
       </div>
+
+      {!allMatched && showHint && <BetoFeedbackCard payload={preHintPayload} />}
 
       <div className={`grid gap-3 ${gridCols}`}>
         {cards.map((card) => {
           const isMatched = matchedPairIds.includes(card.pairId);
-          const isRevealed = isMatched || flippedUids.includes(card.uid);
+          const isMismatch = mismatchUids.includes(card.uid);
+          const isRevealed = isMatched || flippedUids.includes(card.uid) || isMismatch;
 
           return (
             <button
@@ -165,9 +230,17 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
                   className={`backface-hidden rotate-y-180 absolute inset-0 flex flex-col items-center justify-center rounded-2xl border-2 p-2 text-center ${
                     isMatched
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
-                      : 'border-slate-300 bg-white text-slate-900'
+                      : isMismatch
+                        ? 'border-rose-500 bg-rose-50 text-rose-950'
+                        : 'border-slate-300 bg-white text-slate-900'
                   }`}
                 >
+                  {isMismatch && (
+                    <XCircle
+                      className="absolute right-2 top-2 h-4 w-4 text-rose-600"
+                      aria-hidden="true"
+                    />
+                  )}
                   {card.kind === 'cue' ? (
                     challenge.mode === 'audio_word' ? (
                       <>
@@ -185,8 +258,8 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
                       <span className="font-display text-base font-extrabold text-slate-900 sm:text-lg">
                         {card.word}
                       </span>
-                      {isMatched && (
-                        <span className="mt-0.5 text-[11px] font-semibold text-emerald-700">
+                      {(isMatched || isMismatch) && (
+                        <span className={`mt-0.5 text-[11px] font-semibold ${isMismatch ? 'text-rose-700' : 'text-emerald-700'}`}>
                           {card.spanish}
                         </span>
                       )}
@@ -199,18 +272,30 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
         })}
       </div>
 
+      {/* Immediate Mismatch Explanation Card (never silent!) */}
+      {!allMatched && errorFeedback && (
+        <BetoFeedbackCard
+          payload={errorFeedback}
+          actionLabel={mismatchUids.length > 0 ? 'Voltear tarjetas e intentar de nuevo' : undefined}
+          onAction={mismatchUids.length > 0 ? dismissMismatchAndContinue : undefined}
+        />
+      )}
+
       {allMatched && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-bold text-emerald-900">
-            ¡Encontraste todas las parejas de vocabulario!
-          </p>
-          <button
-            type="button"
-            onClick={() => onComplete(mistakeCount <= 4)}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 whitespace-nowrap"
-          >
-            Continuar
-          </button>
+        <div className="space-y-4">
+          <BetoFeedbackCard payload={successPayload} />
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-sm font-bold text-emerald-900">
+              ¡Encontraste todas las parejas de vocabulario!
+            </p>
+            <button
+              type="button"
+              onClick={() => onComplete(mistakeCount <= 2)}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 whitespace-nowrap"
+            >
+              Continuar
+            </button>
+          </div>
         </div>
       )}
     </div>

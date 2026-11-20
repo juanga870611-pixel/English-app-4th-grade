@@ -1,31 +1,47 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, BookOpen, CheckCircle2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, XCircle } from 'lucide-react';
 import type { ReadingChallenge, ReadingSequenceItem } from '../../types/curriculum';
 import { AudioControls } from '../AudioControls';
+import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
+import {
+  getPreAnswerHint,
+  getSequenceErrorFeedback,
+  getSuccessReinforcementExample,
+  getVisualChoiceErrorFeedback,
+  type BetoFeedbackPayload,
+  type SequenceAnalysis,
+  type WeekMistakeReviewItem,
+} from '../../utils/pedagogicalFeedback';
 import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
 
 interface ReadingGameProps {
   challenge: ReadingChallenge;
+  grammarFocus?: string;
   soundMuted: boolean;
   onComplete: (firstTry: boolean) => void;
   onMistake: (hintEs: string) => void;
+  onMistakeDetail?: (item: WeekMistakeReviewItem) => void;
 }
 
 export const ReadingGame: React.FC<ReadingGameProps> = ({
   challenge,
+  grammarFocus = '',
   soundMuted,
   onComplete,
   onMistake,
+  onMistakeDetail,
 }) => {
   const [showTranslation, setShowTranslation] = useState(false);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [wrongOptionIds, setWrongOptionIds] = useState<Set<string>>(() => new Set());
   const [hadMistake, setHadMistake] = useState(false);
   const [solved, setSolved] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [errorFeedback, setErrorFeedback] = useState<BetoFeedbackPayload | null>(null);
+  const [sequenceAnalysis, setSequenceAnalysis] = useState<SequenceAnalysis | null>(null);
 
-  // Sequence ordering state
   const initialOrder = useMemo<ReadingSequenceItem[]>(() => {
     if (!challenge.sequenceItems) return [];
-    // Rotate order so it doesn't start solved
     const items = [...challenge.sequenceItems];
     if (items.length >= 3) {
       return [items[2], items[0], items[1]];
@@ -35,16 +51,56 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
 
   const [seqOrder, setSeqOrder] = useState<ReadingSequenceItem[]>(initialOrder);
 
+  const preHintPayload = useMemo(
+    () => getPreAnswerHint(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
+  const successPayload = useMemo(
+    () => getSuccessReinforcementExample(challenge, grammarFocus),
+    [challenge, grammarFocus]
+  );
+
   const handleSelectOption = (optionId: string) => {
     if (solved || !challenge.question) return;
     setSelectedOptionId(optionId);
     if (optionId === challenge.question.correctOptionId) {
       setSolved(true);
+      setErrorFeedback(null);
+      setShowHint(false);
       playSuccessChime(soundMuted);
     } else {
       setHadMistake(true);
+      setShowHint(false);
+      setWrongOptionIds((prev) => new Set(prev).add(optionId));
       playRetryTone(soundMuted);
+
+      const chosen = challenge.question.options.find((o) => o.id === optionId);
+      const correct = challenge.question.options.find(
+        (o) => o.id === challenge.question!.correctOptionId
+      );
+
+      const feedback = getVisualChoiceErrorFeedback({
+        chosenLabel: chosen?.text ?? optionId,
+        chosenSpanish: 'opción seleccionada',
+        correctLabel: correct?.text ?? '',
+        correctSpanish: '',
+        contextText: challenge.passageEn.join(' '),
+        hintEs: challenge.hintEs,
+        grammarFocus,
+      });
+
+      setErrorFeedback(feedback);
       onMistake(challenge.hintEs);
+      onMistakeDetail?.({
+        challengeId: challenge.id,
+        challengeTypeLabel: 'Lectura comprensiva',
+        promptSummaryEs: challenge.question.questionEs,
+        studentAnswerEs: chosen?.text ?? optionId,
+        correctAnswerEs: correct?.text ?? '',
+        explanationEs: feedback.explanationEs,
+        example: feedback.example,
+      });
     }
   };
 
@@ -55,6 +111,8 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
     const copy = [...seqOrder];
     [copy[index], copy[targetIndex]] = [copy[targetIndex], copy[index]];
     setSeqOrder(copy);
+    // Clear old red markings when student edits order so they can test cleanly
+    setSequenceAnalysis(null);
   };
 
   const handleCheckSequence = () => {
@@ -62,18 +120,39 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
     const isCorrect = seqOrder.every((item, idx) => item.id === challenge.sequenceItems![idx].id);
     if (isCorrect) {
       setSolved(true);
+      setErrorFeedback(null);
+      setSequenceAnalysis(null);
+      setShowHint(false);
       playSuccessChime(soundMuted);
     } else {
       setHadMistake(true);
+      setShowHint(false);
       playRetryTone(soundMuted);
+      const { payload, analysis } = getSequenceErrorFeedback(
+        challenge,
+        seqOrder.map((i) => i.id)
+      );
+      setSequenceAnalysis(analysis);
+      setErrorFeedback(payload);
       onMistake(challenge.hintEs);
+      onMistakeDetail?.({
+        challengeId: challenge.id,
+        challengeTypeLabel: 'Secuencia de lectura',
+        promptSummaryEs: challenge.titleEs,
+        studentAnswerEs: seqOrder.map((s, i) => `${i + 1}. ${s.textEn}`).join(' / '),
+        correctAnswerEs: challenge.sequenceItems
+          .map((s, i) => `${i + 1}. ${s.textEn}`)
+          .join(' / '),
+        explanationEs: payload.explanationEs,
+        example: payload.example,
+      });
     }
   };
 
   const fullTextEn = challenge.passageEn.join(' ');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-bold text-amber-700">
@@ -83,14 +162,20 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
             {challenge.titleEs}
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowTranslation((v) => !v)}
-          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-        >
-          <BookOpen className="h-4 w-4 text-amber-600" aria-hidden="true" />
-          <span>{showTranslation ? 'Ocultar ayuda en español' : 'Ver ayuda en español'}</span>
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {!solved && (
+            <HintExampleButton open={showHint} onToggle={() => setShowHint((v) => !v)} />
+          )}
+          <button
+            type="button"
+            onClick={() => setShowTranslation((v) => !v)}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+          >
+            <BookOpen className="h-4 w-4 text-amber-600" aria-hidden="true" />
+            <span>{showTranslation ? 'Ocultar ayuda en español' : 'Ver ayuda en español'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Story Card */}
@@ -127,6 +212,8 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
         </div>
       </div>
 
+      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+
       {/* Mode 1: Multiple Choice Question */}
       {challenge.mode === 'multiple_choice' && challenge.question && (
         <div className="space-y-3">
@@ -139,7 +226,9 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
             {challenge.question.options.map((opt) => {
               const isSelected = selectedOptionId === opt.id;
               const isCorrect = solved && opt.id === challenge.question!.correctOptionId;
-              const isWrong = isSelected && opt.id !== challenge.question!.correctOptionId;
+              const isWrong =
+                (isSelected || wrongOptionIds.has(opt.id)) &&
+                opt.id !== challenge.question!.correctOptionId;
 
               return (
                 <button
@@ -160,8 +249,16 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
                       {opt.emoji}
                     </span>
                   )}
-                  <span className="flex-1 text-base font-semibold">{opt.text}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-base font-semibold">{opt.text}</span>
+                    {isWrong && (
+                      <span className="block text-xs font-bold text-rose-700">
+                        No coincide con la lectura · Prueba otra opción
+                      </span>
+                    )}
+                  </div>
                   {isCorrect && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />}
+                  {isWrong && <XCircle className="h-5 w-5 shrink-0 text-rose-500" aria-hidden="true" />}
                 </button>
               );
             })}
@@ -173,53 +270,79 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
       {challenge.mode === 'sequence' && challenge.sequenceItems && (
         <div className="space-y-3">
           <p className="font-display text-lg font-bold text-slate-900">
-            Ordena los momentos de la historia (1° al 3°) usando las flechas:
+            Ordena los momentos de la historia (1° al {challenge.sequenceItems.length}°) usando las flechas:
           </p>
 
           <div className="space-y-2.5">
-            {seqOrder.map((item, idx) => (
-              <div
-                key={item.id}
-                className={`flex items-center gap-3 rounded-2xl border p-3.5 ${
-                  solved
-                    ? 'border-emerald-400 bg-emerald-50'
-                    : 'border-slate-200 bg-white'
-                }`}
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 font-display text-sm font-extrabold text-slate-700 tabular-nums">
-                  {idx + 1}
-                </span>
-                <span className="text-2xl shrink-0" aria-hidden="true">
-                  {item.emoji}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-900 sm:text-base">{item.textEn}</p>
-                  <p className="text-xs text-slate-500">{item.textEs}</p>
-                </div>
-                {!solved && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      disabled={idx === 0}
-                      onClick={() => moveItem(idx, -1)}
-                      aria-label={`Subir evento: ${item.textEn}`}
-                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
-                    >
-                      <ArrowUp className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={idx === seqOrder.length - 1}
-                      onClick={() => moveItem(idx, 1)}
-                      aria-label={`Bajar evento: ${item.textEn}`}
-                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
-                    >
-                      <ArrowDown className="h-4 w-4" aria-hidden="true" />
-                    </button>
+            {seqOrder.map((item, idx) => {
+              const status = sequenceAnalysis?.itemStatuses[idx];
+              const isRowWrong = !solved && status === 'wrong_position';
+              const isRowRight = !solved && status === 'correct';
+
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 rounded-2xl border p-3.5 transition-colors ${
+                    solved || isRowRight
+                      ? 'border-emerald-400 bg-emerald-50'
+                      : isRowWrong
+                        ? 'border-rose-400 bg-rose-50'
+                        : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-display text-sm font-extrabold tabular-nums ${
+                      isRowWrong
+                        ? 'bg-rose-200 text-rose-950'
+                        : isRowRight || solved
+                          ? 'bg-emerald-200 text-emerald-950'
+                          : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {idx + 1}
+                  </span>
+                  <span className="text-2xl shrink-0" aria-hidden="true">
+                    {item.emoji}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900 sm:text-base">{item.textEn}</p>
+                    <p className="text-xs text-slate-600">{item.textEs}</p>
+                    {isRowWrong && (
+                      <p className="mt-1 text-xs font-bold text-rose-700">
+                        Posición {idx + 1} incorrecta · Mueve esta tarjeta
+                      </p>
+                    )}
+                    {isRowRight && (
+                      <p className="mt-1 text-xs font-bold text-emerald-700">
+                        Posición {idx + 1} correcta
+                      </p>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+                  {!solved && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveItem(idx, -1)}
+                        aria-label={`Subir evento: ${item.textEn}`}
+                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
+                      >
+                        <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === seqOrder.length - 1}
+                        onClick={() => moveItem(idx, 1)}
+                        aria-label={`Bajar evento: ${item.textEn}`}
+                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
+                      >
+                        <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {!solved && (
@@ -236,15 +359,20 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
         </div>
       )}
 
+      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+
       {solved && (
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={() => onComplete(!hadMistake)}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
-          >
-            Continuar
-          </button>
+        <div className="space-y-4 pt-1">
+          <BetoFeedbackCard payload={successPayload} />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onComplete(!hadMistake)}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
+            >
+              Continuar
+            </button>
+          </div>
         </div>
       )}
     </div>
