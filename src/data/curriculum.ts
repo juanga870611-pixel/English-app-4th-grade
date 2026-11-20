@@ -1,4 +1,8 @@
 import type { CurriculumModule, WeekLesson } from '../types/curriculum';
+import { MODULE_1_WEEKS_5_TO_9 } from './module1Weeks5to9';
+import { MODULE_2_WEEKS } from './module2Weeks';
+import { MODULE_3_WEEKS } from './module3Weeks';
+import { MODULE_4_WEEKS } from './module4Weeks';
 
 export const CURRICULUM_MODULES: CurriculumModule[] = [
   {
@@ -43,8 +47,7 @@ export const CURRICULUM_MODULES: CurriculumModule[] = [
   },
 ];
 
-// Weeks 1-4 of Module 1 are 100% implemented with rich interactive challenges.
-// Weeks 5-36 are structured cleanly for future curriculum drops.
+// All 36 weeks across Modules 1–4 are 100% implemented with interactive challenges.
 export const CURRICULUM_WEEKS: WeekLesson[] = [
   // =========================================================================
   // MODULE 1 - WEEK 1: My Body & Hygiene Habits
@@ -620,44 +623,10 @@ export const CURRICULUM_WEEKS: WeekLesson[] = [
   },
 
   // =========================================================================
-  // STRUCTURED CURRICULUM ROADMAP FOR WEEKS 5 TO 36 (READY FOR MODULES 2-4)
+  // MODULE 1 (WEEKS 5–9) & MODULES 2–4 (WEEKS 10–36)
   // =========================================================================
-  { weekNumber: 5, moduleId: 1, weekInModule: 5, titleEn: 'At the Doctor & Remedies', titleEs: 'En el médico y remedios', grammarFocus: 'Take medicine · Drink warm tea · Should/Shouldn’t', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 6, moduleId: 1, weekInModule: 6, titleEn: 'Sports & Active Play', titleEs: 'Deportes y juego activo', grammarFocus: 'I like playing soccer · Let’s jump and run', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 7, moduleId: 1, weekInModule: 7, titleEn: 'Feelings & Self-Care', titleEs: 'Bienestar emocional y descanso', grammarFocus: 'I feel calm / tired · Breathe slowly', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 8, moduleId: 1, weekInModule: 8, titleEn: 'School Cafeteria Menu', titleEs: 'El menú del restaurante escolar', grammarFocus: 'Healthy plate · How much / How many', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 9, moduleId: 1, weekInModule: 9, titleEn: 'Module 1 Grand Challenge', titleEs: 'Gran desafío: Salud y Vida', grammarFocus: 'Evaluación integral Módulo 1 MEN', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-
-  // MODULE 2: Coexistence and Peace (Weeks 10-18)
-  { weekNumber: 10, moduleId: 2, weekInModule: 1, titleEn: 'My Family & Friends', titleEs: 'Mi familia y mis amigos', grammarFocus: 'Possessives: my, your, his, her', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 11, moduleId: 2, weekInModule: 2, titleEn: 'Describing People', titleEs: '¿Cómo somos? Rasgos físicos', grammarFocus: 'Verb to be + tall, short, curly hair', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 12, moduleId: 2, weekInModule: 3, titleEn: 'Personality & Values', titleEs: 'Personalidad y valores', grammarFocus: 'kind, friendly, respectful, honest', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 13, moduleId: 2, weekInModule: 4, titleEn: 'Emotions in Class', titleEs: 'Mis emociones en el aula', grammarFocus: 'happy, sad, angry, scared, excited', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 14, moduleId: 2, weekInModule: 5, titleEn: 'Polite Words & Respect', titleEs: 'Palabras mágicas y cortesía', grammarFocus: 'Please, thank you, excuse me, sorry', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 15, moduleId: 2, weekInModule: 6, titleEn: 'Classroom Rules Together', titleEs: 'Acuerdos de convivencia', grammarFocus: 'We listen · We share · We help', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 16, moduleId: 2, weekInModule: 7, titleEn: 'Celebrating Differences', titleEs: 'Celebramos la diversidad', grammarFocus: 'He is from... · She likes...', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 17, moduleId: 2, weekInModule: 8, titleEn: 'Solving Conflicts Peacefully', titleEs: 'Resolvemos conflictos en paz', grammarFocus: 'Let’s talk · Don’t shout', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 18, moduleId: 2, weekInModule: 9, titleEn: 'Module 2 Peace Festival', titleEs: 'Festival de Paz (Cierre M2)', grammarFocus: 'Evaluación integral Módulo 2 MEN', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-
-  // MODULE 3: Environment and Society (Weeks 19-27)
-  { weekNumber: 19, moduleId: 3, weekInModule: 1, titleEn: 'Colombian Fauna', titleEs: 'Fauna de Colombia', grammarFocus: 'Andean condor, bear, jaguar, toucan', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 20, moduleId: 3, weekInModule: 2, titleEn: 'Wild & Farm Animals', titleEs: 'Animales salvajes y de granja', grammarFocus: 'There is / There are', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 21, moduleId: 3, weekInModule: 3, titleEn: 'Habitats of Our Country', titleEs: 'Hábitats: bosque, río, océano', grammarFocus: 'forest, river, ocean, farm', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 22, moduleId: 3, weekInModule: 4, titleEn: 'What Animals Can Do', titleEs: 'Habilidades con can / can’t', grammarFocus: 'A condor can fly · A fish can’t walk', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 23, moduleId: 3, weekInModule: 5, titleEn: 'Save Water & Energy', titleEs: 'Cuidemos el agua y la energía', grammarFocus: 'Turn off the tap · Save water', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 24, moduleId: 3, weekInModule: 6, titleEn: 'Reduce, Reuse, Recycle', titleEs: 'Reciclaje en el colegio', grammarFocus: 'recycle paper, plastic, glass', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 25, moduleId: 3, weekInModule: 7, titleEn: 'Planting Trees Together', titleEs: '¡Sembremos árboles!', grammarFocus: 'Plant trees · Protect nature', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 26, moduleId: 3, weekInModule: 8, titleEn: 'Eco-Guardians at School', titleEs: 'Guardianes ecológicos', grammarFocus: 'We can protect our river', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 27, moduleId: 3, weekInModule: 9, titleEn: 'Module 3 Eco Challenge', titleEs: 'Gran desafío Ambiental (M3)', grammarFocus: 'Evaluación integral Módulo 3 MEN', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-
-  // MODULE 4: A Global Village (Weeks 28-36)
-  { weekNumber: 28, moduleId: 4, weekInModule: 1, titleEn: 'Places in My Neighborhood', titleEs: 'Lugares de mi barrio', grammarFocus: 'school, park, hospital, library, bakery', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 29, moduleId: 4, weekInModule: 2, titleEn: 'Prepositions of Place', titleEs: '¿Dónde queda? Preposiciones', grammarFocus: 'in, on, under, next to, between', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 30, moduleId: 4, weekInModule: 3, titleEn: 'Transport in Colombia', titleEs: 'Medios de transporte', grammarFocus: 'bus, bicycle, metro, boat, airplane', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 31, moduleId: 4, weekInModule: 4, titleEn: 'Telling the Time', titleEs: 'La hora en punto', grammarFocus: 'What time is it? It is eight o’clock', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 32, moduleId: 4, weekInModule: 5, titleEn: 'Actions Happening Now', titleEs: 'Presente continuo en la ciudad', grammarFocus: 'She is riding a bike · They are walking', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 33, moduleId: 4, weekInModule: 6, titleEn: 'Road Safety & Signs', titleEs: 'Seguridad vial en mi ciudad', grammarFocus: 'Stop · Look both ways · Cross safely', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 34, moduleId: 4, weekInModule: 7, titleEn: 'Countries & Cultures', titleEs: 'Culturas del mundo', grammarFocus: 'Colombia, Brazil, USA, Japan', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
-  { weekNumber: 35, moduleId: 4, weekInModule: 8, titleEn: 'My Digital Citizenship', titleEs: 'Uso seguro de internet', grammarFocus: 'Be kind online · Ask an adult', vocabularyPreview: [], hasMicroStory: false, isImplemented: false, challenges: [] },
-  { weekNumber: 36, moduleId: 4, weekInModule: 9, titleEn: 'Final Grade 4 Graduation!', titleEs: '¡Graduación 4° de Primaria!', grammarFocus: 'Evaluación final Aldea Global (M4)', vocabularyPreview: [], hasMicroStory: true, isImplemented: false, challenges: [] },
+  ...MODULE_1_WEEKS_5_TO_9,
+  ...MODULE_2_WEEKS,
+  ...MODULE_3_WEEKS,
+  ...MODULE_4_WEEKS,
 ];

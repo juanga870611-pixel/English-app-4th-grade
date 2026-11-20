@@ -163,6 +163,13 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
                 ¡Superaste el {PASS_ACCURACY_THRESHOLD}%! Desbloqueaste la Semana {week.weekNumber + 1} de inmediato.
               </span>
             </div>
+          ) : week.weekNumber === 36 && summary.passed ? (
+            <div className="flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950">
+              <Trophy className="h-5 w-5 text-amber-600 shrink-0" aria-hidden="true" />
+              <span>
+                ¡Felicitaciones! Completaste las 36 semanas de 4° de Primaria. ¡Exporta tu código final para tu profe!
+              </span>
+            </div>
           ) : !summary.passed ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950">
               Necesitas al menos {PASS_ACCURACY_THRESHOLD}% para desbloquear la siguiente semana. ¡Inténtalo de nuevo!
