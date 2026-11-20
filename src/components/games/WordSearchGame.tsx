@@ -97,7 +97,7 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
         const remaining = challenge.targets.filter(
           (t) => !foundWords.includes(t.word.toUpperCase())
         );
-        const feedback = getWordSearchErrorFeedback('trazo torcido', remaining);
+        const feedback = getWordSearchErrorFeedback(challenge.id, 'trazo torcido', remaining);
         setErrorFeedback(feedback);
         onMistake('Recuerda seleccionar en línea recta horizontal, vertical o diagonal.');
       }
@@ -136,7 +136,7 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
       const remaining = challenge.targets.filter(
         (t) => !foundWords.includes(t.word.toUpperCase())
       );
-      const feedback = getWordSearchErrorFeedback(formed, remaining);
+      const feedback = getWordSearchErrorFeedback(challenge.id, formed, remaining);
       setErrorFeedback(feedback);
       onMistake(challenge.hintEs);
 
@@ -242,7 +242,7 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
         )}
       </div>
 
-      {!allFound && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+      {!allFound && showHint && <BetoFeedbackCard payload={preHintPayload} soundMuted={soundMuted} />}
 
       {lastFoundInfo && (
         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-950">
@@ -253,7 +253,7 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
         </div>
       )}
 
-      {!allFound && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+      {!allFound && errorFeedback && <BetoFeedbackCard payload={errorFeedback} soundMuted={soundMuted} />}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
         <div
@@ -351,7 +351,7 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
 
       {allFound && (
         <div className="space-y-4 pt-2">
-          <BetoFeedbackCard payload={successPayload} />
+          <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
           <div className="flex justify-end">
             <button
               type="button"

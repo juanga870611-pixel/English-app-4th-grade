@@ -121,6 +121,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
         setLockedBoard(false);
 
         const feedback = getMemoryMismatchFeedback(
+          challenge.id,
           firstCard.word,
           firstCard.spanish,
           secondCard.word,
@@ -193,7 +194,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
         )}
       </div>
 
-      {!allMatched && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+      {!allMatched && showHint && <BetoFeedbackCard payload={preHintPayload} soundMuted={soundMuted} />}
 
       <div className={`grid gap-3 ${gridCols}`}>
         {cards.map((card) => {
@@ -276,6 +277,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
       {!allMatched && errorFeedback && (
         <BetoFeedbackCard
           payload={errorFeedback}
+          soundMuted={soundMuted}
           actionLabel={mismatchUids.length > 0 ? 'Voltear tarjetas e intentar de nuevo' : undefined}
           onAction={mismatchUids.length > 0 ? dismissMismatchAndContinue : undefined}
         />
@@ -283,7 +285,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
 
       {allMatched && (
         <div className="space-y-4">
-          <BetoFeedbackCard payload={successPayload} />
+          <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="text-sm font-bold text-emerald-900">
               ¡Encontraste todas las parejas de vocabulario!

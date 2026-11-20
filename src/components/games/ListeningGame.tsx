@@ -66,7 +66,9 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       const correct = challenge.options?.find((o) => o.id === challenge.correctOptionId);
 
       const feedback = getVisualChoiceErrorFeedback({
+        challengeId: challenge.id,
         chosenLabel: chosen?.label ?? optionId,
+        chosenEmoji: chosen?.emoji,
         chosenSpanish: chosen?.spanish ?? '',
         correctLabel: correct?.label ?? '',
         correctSpanish: correct?.spanish ?? '',
@@ -145,7 +147,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       </div>
 
       {/* Optional Pre-Answer Hint with Similar Example */}
-      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} soundMuted={soundMuted} />}
 
       {/* Mode 1: Visual Card Choice */}
       {challenge.mode === 'visual_choice' && challenge.options && (
@@ -242,12 +244,12 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       )}
 
       {/* Beto Immediate Error Feedback Card */}
-      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} soundMuted={soundMuted} />}
 
       {/* Success Everyday Reinforcement + Continue */}
       {solved && (
         <div className="space-y-4 pt-1">
-          <BetoFeedbackCard payload={successPayload} />
+          <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
           <div className="flex justify-end">
             <button
               type="button"

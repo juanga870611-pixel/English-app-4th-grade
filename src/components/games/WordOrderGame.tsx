@@ -160,7 +160,7 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
         )}
       </div>
 
-      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} soundMuted={soundMuted} />}
 
       {/* Answer Tray (supports tap or drag-and-drop) */}
       <div
@@ -265,7 +265,7 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
         </div>
       </div>
 
-      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} soundMuted={soundMuted} />}
 
       {solved ? (
         <div className="space-y-4">
@@ -284,7 +284,7 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
               Continuar
             </button>
           </div>
-          <BetoFeedbackCard payload={successPayload} />
+          <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
         </div>
       ) : (
         <div className="flex justify-end">

@@ -36,6 +36,73 @@
   transform: rotateY(180deg);
 }
 
+/* Mini-video & animated pedagogical scene keyframes (compositor-only) */
+@keyframes betoTalkBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.03); }
+}
+
+@keyframes betoWave {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-10deg); }
+}
+
+@keyframes sceneFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes sceneHop {
+  0%, 100% { transform: translate(0px, 0px); }
+  50% { transform: translate(28px, -14px); }
+}
+
+@keyframes sceneDrive {
+  0% { transform: translateX(-18px); }
+  50% { transform: translateX(18px); }
+  100% { transform: translateX(-18px); }
+}
+
+@keyframes clockMinuteSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes popBlockIn {
+  0% { opacity: 0; transform: translateY(8px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-beto-talk {
+  animation: betoTalkBounce 0.7s ease-in-out infinite;
+}
+
+.animate-beto-wave {
+  transform-origin: 70% 80%;
+  animation: betoWave 1.1s ease-in-out infinite;
+}
+
+.animate-scene-float {
+  animation: sceneFloat 2.4s ease-in-out infinite;
+}
+
+.animate-scene-hop {
+  animation: sceneHop 2.6s ease-in-out infinite;
+}
+
+.animate-scene-drive {
+  animation: sceneDrive 3.2s ease-in-out infinite;
+}
+
+.animate-clock-minute {
+  transform-origin: 60px 55px;
+  animation: clockMinuteSpin 6s linear infinite;
+}
+
+.animate-pop-block {
+  animation: popBlockIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

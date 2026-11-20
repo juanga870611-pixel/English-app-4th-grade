@@ -126,6 +126,7 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
       }));
 
       const feedback = getMicroStoryCheckpointErrorFeedback(
+        challenge.id,
         currentScene,
         chosen?.text ?? optionId,
         challenge.hintEs,
@@ -272,7 +273,7 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
           </div>
 
           {!answeredCheckpoints[currentScene.id] && showHint && (
-            <BetoFeedbackCard payload={preHintPayload} />
+            <BetoFeedbackCard payload={preHintPayload} soundMuted={soundMuted} />
           )}
 
           <div className="space-y-2">
@@ -308,11 +309,11 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
           </div>
 
           {!answeredCheckpoints[currentScene.id] && sceneErrorFeedback && (
-            <BetoFeedbackCard payload={sceneErrorFeedback} />
+            <BetoFeedbackCard payload={sceneErrorFeedback} soundMuted={soundMuted} />
           )}
 
           {answeredCheckpoints[currentScene.id] && (
-            <BetoFeedbackCard payload={successPayload} />
+            <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
           )}
         </div>
       )}

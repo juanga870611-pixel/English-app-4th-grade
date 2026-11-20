@@ -81,7 +81,9 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
       );
 
       const feedback = getVisualChoiceErrorFeedback({
+        challengeId: challenge.id,
         chosenLabel: chosen?.text ?? optionId,
+        chosenEmoji: chosen?.emoji ?? challenge.sceneEmoji,
         chosenSpanish: 'opción seleccionada',
         correctLabel: correct?.text ?? '',
         correctSpanish: '',
@@ -212,7 +214,7 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
         </div>
       </div>
 
-      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} />}
+      {!solved && showHint && <BetoFeedbackCard payload={preHintPayload} soundMuted={soundMuted} />}
 
       {/* Mode 1: Multiple Choice Question */}
       {challenge.mode === 'multiple_choice' && challenge.question && (
@@ -359,11 +361,11 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
         </div>
       )}
 
-      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} />}
+      {!solved && errorFeedback && <BetoFeedbackCard payload={errorFeedback} soundMuted={soundMuted} />}
 
       {solved && (
         <div className="space-y-4 pt-1">
-          <BetoFeedbackCard payload={successPayload} />
+          <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
           <div className="flex justify-end">
             <button
               type="button"

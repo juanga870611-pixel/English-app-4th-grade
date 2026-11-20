@@ -202,7 +202,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
       </div>
 
       {showHint && (gameState === 'READY' || gameState === 'PLAYING') && (
-        <BetoFeedbackCard payload={preHintPayload} />
+        <BetoFeedbackCard payload={preHintPayload} soundMuted={soundMuted} />
       )}
 
       {/* Compact Game HUD */}
@@ -284,6 +284,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
           {pendingError ? (
             <BetoFeedbackCard
               payload={pendingError.payload}
+              soundMuted={soundMuted}
               actionLabel={
                 pendingError.nextLives <= 0
                   ? 'Ver resultado e intentar de nuevo'
@@ -340,7 +341,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
       {/* WON STATE */}
       {gameState === 'WON' && (
         <div className="space-y-4">
-          <BetoFeedbackCard payload={successPayload} />
+          <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center space-y-4">
             <Trophy className="mx-auto h-10 w-10 text-amber-500" aria-hidden="true" />
             <p className="font-display text-xl font-extrabold text-emerald-950">

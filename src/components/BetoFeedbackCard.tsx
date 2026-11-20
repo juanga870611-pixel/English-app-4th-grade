@@ -1,10 +1,12 @@
 import React from 'react';
-import { AlertCircle, CheckCircle2, Lightbulb, Turtle, Volume2 } from 'lucide-react';
+import { CheckCircle2, Lightbulb, Turtle, Volume2 } from 'lucide-react';
 import type { BetoFeedbackPayload } from '../utils/pedagogicalFeedback';
 import { speakEnglish } from '../utils/speech';
+import { BetoMiniVideoStage } from './BetoMiniVideoStage';
 
 interface BetoFeedbackCardProps {
   payload: BetoFeedbackPayload;
+  soundMuted?: boolean;
   actionLabel?: string;
   onAction?: () => void;
 }
@@ -45,62 +47,45 @@ export const BetoMiniAvatar: React.FC<{ mood: 'error' | 'hint' | 'success' }> = 
 
 export const BetoFeedbackCard: React.FC<BetoFeedbackCardProps> = ({
   payload,
+  soundMuted = false,
   actionLabel,
   onAction,
 }) => {
-  const isError = payload.kind === 'error';
-  const isSuccess = payload.kind === 'success';
-
-  const cardTheme = isError
-    ? 'border-rose-300 bg-rose-50 text-rose-950'
-    : isSuccess
-      ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
-      : 'border-amber-300 bg-amber-50 text-amber-950';
-
-  const headerColor = isError
-    ? 'text-rose-800'
-    : isSuccess
-      ? 'text-emerald-800'
-      : 'text-amber-800';
-
-  const HeaderIcon = isError ? AlertCircle : isSuccess ? CheckCircle2 : Lightbulb;
+  // Error and pre-answer hints render the interactive 3-step animated mini-video theater
+  if (payload.kind === 'error' || payload.kind === 'hint') {
+    return (
+      <BetoMiniVideoStage
+        payload={payload}
+        soundMuted={soundMuted}
+        actionLabel={actionLabel}
+        onAction={onAction}
+      />
+    );
+  }
 
   return (
     <div
-      role={isError ? 'alert' : 'status'}
+      role="status"
       aria-live="polite"
-      className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${cardTheme}`}
+      className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 sm:p-5 text-emerald-950 space-y-3"
     >
       <div className="flex items-start gap-3">
-        <BetoMiniAvatar mood={payload.kind} />
+        <BetoMiniAvatar mood="success" />
         <div className="min-w-0 flex-1 space-y-1.5">
-          <div className={`flex items-center gap-1.5 text-xs font-bold ${headerColor}`}>
-            <HeaderIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{payload.titleEs}</span>
           </div>
-
-          {payload.wrongPartEs && (
-            <p className="rounded-xl border border-rose-200 bg-white/80 px-3 py-2 text-sm font-bold text-rose-900">
-              {payload.wrongPartEs}
-            </p>
-          )}
-
           <p className="text-sm font-semibold leading-relaxed text-slate-900">
             {payload.explanationEs}
           </p>
-
-          {payload.hintEs && (
-            <p className="text-xs font-medium text-slate-700">{payload.hintEs}</p>
-          )}
         </div>
       </div>
 
-      {/* Model / Everyday Example with Audio + Translation */}
+      {/* Everyday Reinforcement Example */}
       <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold text-slate-500">
-            {isSuccess ? 'Ejemplo de uso cotidiano' : 'Ejemplo parecido en inglés'}
-          </p>
+          <p className="text-[11px] font-bold text-slate-500">Ejemplo de uso cotidiano</p>
           <p className="mt-0.5 font-display text-base font-bold text-slate-900">
             {payload.example.en}
           </p>
@@ -110,7 +95,7 @@ export const BetoFeedbackCard: React.FC<BetoFeedbackCardProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => speakEnglish(payload.example.en)}
+            onClick={() => speakEnglish(payload.example.en, { muted: soundMuted })}
             aria-label={`Escuchar ejemplo: ${payload.example.en}`}
             className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-900 hover:bg-sky-100 whitespace-nowrap"
           >
@@ -119,7 +104,7 @@ export const BetoFeedbackCard: React.FC<BetoFeedbackCardProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => speakEnglish(payload.example.en, { slow: true })}
+            onClick={() => speakEnglish(payload.example.en, { slow: true, muted: soundMuted })}
             aria-label={`Escuchar ejemplo despacio: ${payload.example.en}`}
             className="inline-flex min-h-[40px] items-center gap-1 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 whitespace-nowrap"
           >
@@ -128,18 +113,6 @@ export const BetoFeedbackCard: React.FC<BetoFeedbackCardProps> = ({
           </button>
         </div>
       </div>
-
-      {actionLabel && onAction && (
-        <div className="flex justify-end pt-1">
-          <button
-            type="button"
-            onClick={onAction}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border-b-4 border-slate-800 bg-slate-900 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 active:translate-y-0.5"
-          >
-            {actionLabel}
-          </button>
-        </div>
-      )}
     </div>
   );
 };
@@ -161,6 +134,6 @@ export const HintExampleButton: React.FC<HintExampleButtonProps> = ({ open, onTo
     }`}
   >
     <Lightbulb className="h-4 w-4 text-amber-700 shrink-0" aria-hidden="true" />
-    <span>{open ? 'Ocultar pista y ejemplo' : 'Ver pista con ejemplo'}</span>
+    <span>{open ? 'Ocultar pista animada' : 'Ver pista animada'}</span>
   </button>
 );
