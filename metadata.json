@@ -1,0 +1,8 @@
+{
+  "name": "English Explorers 4° · Ruta Colombia",
+  "description": "Aplicación educativa gamificada de inglés para estudiantes de 4° de primaria en Colombia, alineada con los Estándares Básicos de Competencias (Guía 22 MEN).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
