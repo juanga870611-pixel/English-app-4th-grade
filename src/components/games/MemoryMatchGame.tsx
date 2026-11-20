@@ -9,8 +9,9 @@ import {
   type BetoFeedbackPayload,
   type WeekMistakeReviewItem,
 } from '../../utils/pedagogicalFeedback';
-import { playFlipSound, playRetryTone, playSuccessChime } from '../../utils/soundFx';
+import { playCardFlipSound, playRetryTone, playSuccessChime, playTapSound } from '../../utils/soundFx';
 import { speakEnglish } from '../../utils/speech';
+import { CelebrationBurst } from '../CelebrationBurst';
 
 interface MemoryCard {
   uid: string;
@@ -79,6 +80,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
   const [mistakeCount, setMistakeCount] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [errorFeedback, setErrorFeedback] = useState<BetoFeedbackPayload | null>(null);
+  const [justMatched, setJustMatched] = useState(false);
 
   const allMatched = matchedPairIds.length === challenge.pairs.length;
 
@@ -105,6 +107,8 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
     if (firstCard.pairId === secondCard.pairId) {
       const timer = setTimeout(() => {
         playSuccessChime(soundMuted);
+        setJustMatched(true);
+        setTimeout(() => setJustMatched(false), 900);
         setMatchedPairIds((prev) => [...prev, firstCard.pairId]);
         setFlippedUids([]);
         setMismatchUids([]);
@@ -157,7 +161,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
       if (mismatchUids.includes(card.uid)) return;
       setMismatchUids([]);
       setFlippedUids([card.uid]);
-      playFlipSound(soundMuted);
+      playCardFlipSound(soundMuted);
       if (card.kind === 'word' || challenge.mode === 'audio_word') {
         speakEnglish(card.word);
       }
@@ -166,7 +170,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
 
     if (flippedUids.includes(card.uid)) return;
 
-    playFlipSound(soundMuted);
+    playCardFlipSound(soundMuted);
     if (card.kind === 'word' || challenge.mode === 'audio_word') {
       speakEnglish(card.word);
     }
@@ -177,7 +181,8 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
   const gridCols = cards.length <= 8 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3 sm:grid-cols-4';
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5">
+      <CelebrationBurst active={allMatched || justMatched} variant="stars" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-emerald-700">Juego de memoria · Memory Match</p>
@@ -213,27 +218,27 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
                   ? `${card.word} (${card.spanish})`
                   : 'Voltear carta de memoria'
               }
-              className="perspective-1000 h-28 w-full focus-visible:outline-2 focus-visible:outline-sky-600 sm:h-32"
+              className="group perspective-1000 h-28 w-full focus-visible:outline-2 focus-visible:outline-sky-600 sm:h-32"
             >
               <div
-                className={`relative h-full w-full transition-transform duration-300 transform-style-3d ${
-                  isRevealed ? 'rotate-y-180' : ''
+                className={`relative h-full w-full transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-style-3d ${
+                  isRevealed ? 'rotate-y-180' : 'group-hover:-translate-y-1'
                 }`}
               >
                 {/* Card Back */}
-                <div className="backface-hidden absolute inset-0 flex flex-col items-center justify-center rounded-2xl border-2 border-b-4 border-sky-700 bg-sky-500 text-white shadow-sm hover:bg-sky-600">
-                  <span className="font-display text-2xl font-extrabold" aria-hidden="true">?</span>
-                  <span className="mt-1 text-[11px] font-bold opacity-90">Tocar</span>
+                <div className="backface-hidden absolute inset-0 flex flex-col items-center justify-center rounded-2xl border-2 border-b-[6px] border-sky-700 border-b-sky-800 bg-gradient-to-b from-sky-400 to-sky-600 text-white shadow-[0_10px_18px_-8px_rgba(2,132,199,0.45)] group-hover:from-sky-500 group-hover:to-sky-700">
+                  <span className="font-display text-2xl font-extrabold drop-shadow-xs" aria-hidden="true">?</span>
+                  <span className="mt-1 text-[11px] font-bold opacity-95">Tocar</span>
                 </div>
 
                 {/* Card Front */}
                 <div
-                  className={`backface-hidden rotate-y-180 absolute inset-0 flex flex-col items-center justify-center rounded-2xl border-2 p-2 text-center ${
+                  className={`backface-hidden rotate-y-180 absolute inset-0 flex flex-col items-center justify-center rounded-2xl border-2 border-b-[5px] p-2 text-center shadow-[0_10px_18px_-8px_rgba(15,23,42,0.16)] ${
                     isMatched
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
+                      ? 'border-emerald-500 border-b-emerald-600 bg-gradient-to-b from-white to-emerald-50 text-emerald-950'
                       : isMismatch
-                        ? 'border-rose-500 bg-rose-50 text-rose-950'
-                        : 'border-slate-300 bg-white text-slate-900'
+                        ? 'border-rose-500 border-b-rose-600 bg-rose-50 text-rose-950'
+                        : 'border-slate-300 border-b-slate-400 bg-white text-slate-900'
                   }`}
                 >
                   {isMismatch && (
@@ -286,14 +291,17 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
       {allMatched && (
         <div className="space-y-4">
           <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="panel-3d-emerald flex items-center justify-between gap-4 rounded-2xl p-4">
             <p className="text-sm font-bold text-emerald-900">
               ¡Encontraste todas las parejas de vocabulario!
             </p>
             <button
               type="button"
-              onClick={() => onComplete(mistakeCount <= 2)}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 whitespace-nowrap"
+              onClick={() => {
+                playTapSound(soundMuted);
+                onComplete(mistakeCount <= 2);
+              }}
+              className="btn-3d inline-flex min-h-[44px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 whitespace-nowrap"
             >
               Continuar
             </button>

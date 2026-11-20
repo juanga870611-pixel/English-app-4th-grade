@@ -9,8 +9,9 @@ import {
   type BetoFeedbackPayload,
   type WeekMistakeReviewItem,
 } from '../../utils/pedagogicalFeedback';
-import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
+import { playRetryTone, playSuccessChime, playTapSound } from '../../utils/soundFx';
 import { speakEnglish, stopSpeech } from '../../utils/speech';
+import { CelebrationBurst } from '../CelebrationBurst';
 
 interface MicroStoryGameProps {
   challenge: MicroStoryChallenge;
@@ -159,7 +160,11 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5">
+      <CelebrationBurst
+        active={Boolean(currentScene.checkpoint && answeredCheckpoints[currentScene.id])}
+        variant="stars"
+      />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-bold text-amber-700">
@@ -172,8 +177,11 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
 
         <button
           type="button"
-          onClick={() => setShowSpanish((s) => !s)}
-          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+          onClick={() => {
+            playTapSound(soundMuted);
+            setShowSpanish((s) => !s);
+          }}
+          className="btn-3d inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-b-4 border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
         >
           <BookOpen className="h-4 w-4 text-amber-600" aria-hidden="true" />
           <span>{showSpanish ? 'Ocultar español' : 'Traducir escena'}</span>
@@ -195,10 +203,10 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
         ))}
       </div>
 
-      <div className={`rounded-2xl border p-5 sm:p-6 ${SCENE_TONES[currentScene.bgTone]}`}>
+      <div className={`rounded-2xl border-2 border-b-[6px] p-5 shadow-[0_14px_26px_-12px_rgba(15,23,42,0.14)] sm:p-6 ${SCENE_TONES[currentScene.bgTone]}`}>
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
           <div
-            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white text-5xl shadow-xs"
+            className="cube-3d flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-white/90 bg-white text-5xl"
             aria-hidden="true"
           >
             {currentScene.emoji}
@@ -238,16 +246,22 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
             <div className="flex flex-wrap gap-2.5 pt-1">
               <button
                 type="button"
-                onClick={() => playSceneNarration(false)}
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-xl border-b-4 border-sky-700 bg-sky-500 px-4 py-2 text-sm font-bold text-white hover:bg-sky-600"
+                onClick={() => {
+                  playTapSound(soundMuted);
+                  playSceneNarration(false);
+                }}
+                className="btn-3d inline-flex min-h-[42px] items-center gap-2 rounded-xl border-b-4 border-sky-700 bg-sky-500 px-4 py-2 text-sm font-bold text-white hover:bg-sky-600"
               >
                 <Volume2 className="h-4 w-4" aria-hidden="true" />
                 <span>Narrar escena</span>
               </button>
               <button
                 type="button"
-                onClick={() => playSceneNarration(true)}
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-xl border border-b-4 border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50"
+                onClick={() => {
+                  playTapSound(soundMuted);
+                  playSceneNarration(true);
+                }}
+                className="btn-3d inline-flex min-h-[42px] items-center gap-2 rounded-xl border border-b-4 border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50"
               >
                 <Turtle className="h-4 w-4 text-emerald-700" aria-hidden="true" />
                 <span>Despacio</span>
@@ -259,7 +273,7 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
 
       {/* Embedded Comprehension Checkpoint */}
       {currentScene.checkpoint && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-3">
+        <div className="panel-3d rounded-2xl p-4 sm:p-5 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-xs font-bold text-emerald-700">Pregunta rápida del cuento</p>
@@ -292,12 +306,12 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
                   type="button"
                   disabled={Boolean(answeredCheckpoints[currentScene.id])}
                   onClick={() => handleAnswerCheckpoint(opt.id)}
-                  className={`flex min-h-[48px] w-full items-center justify-between gap-3 rounded-xl border border-b-4 px-4 py-2.5 text-left text-sm font-bold transition-colors sm:text-base ${
+                  className={`btn-3d flex min-h-[48px] w-full items-center justify-between gap-3 rounded-xl border-2 border-b-[5px] px-4 py-2.5 text-left text-sm font-bold sm:text-base ${
                     isCorrect
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
+                      ? 'border-emerald-500 border-b-emerald-600 bg-emerald-50 text-emerald-950'
                       : isWrong
-                        ? 'border-rose-400 bg-rose-50 text-rose-950'
-                        : 'border-slate-200 bg-slate-50 text-slate-900 hover:border-sky-300 hover:bg-sky-50'
+                        ? 'border-rose-400 border-b-rose-500 bg-rose-50 text-rose-950'
+                        : 'border-slate-200 border-b-slate-300 bg-white text-slate-900 hover:border-sky-300 hover:bg-sky-50'
                   }`}
                 >
                   <span>{opt.text}</span>
@@ -323,8 +337,11 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
         <button
           type="button"
           disabled={sceneIdx === 0}
-          onClick={() => setSceneIdx((i) => Math.max(0, i - 1))}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          onClick={() => {
+            playTapSound(soundMuted);
+            setSceneIdx((i) => Math.max(0, i - 1));
+          }}
+          className="btn-3d inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-b-4 border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           <span>Anterior</span>
@@ -333,8 +350,11 @@ export const MicroStoryGame: React.FC<MicroStoryGameProps> = ({
         <button
           type="button"
           disabled={!checkpointPassed}
-          onClick={handleNextScene}
-          className="inline-flex min-h-[48px] items-center gap-1.5 rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-2.5 text-base font-bold text-white hover:bg-emerald-700 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
+          onClick={() => {
+            playTapSound(soundMuted);
+            handleNextScene();
+          }}
+          className="btn-3d inline-flex min-h-[48px] items-center gap-1.5 rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-2.5 text-base font-bold text-white hover:bg-emerald-700 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
         >
           <span>{isLastScene ? 'Terminar cuento' : 'Siguiente escena'}</span>
           <ChevronRight className="h-4 w-4" aria-hidden="true" />

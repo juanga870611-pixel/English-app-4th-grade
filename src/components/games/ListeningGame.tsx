@@ -11,7 +11,8 @@ import {
   type BetoFeedbackPayload,
   type WeekMistakeReviewItem,
 } from '../../utils/pedagogicalFeedback';
-import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
+import { playRetryTone, playSuccessChime, playTapSound } from '../../utils/soundFx';
+import { CelebrationBurst } from '../CelebrationBurst';
 
 interface ListeningGameProps {
   challenge: ListeningChallenge;
@@ -124,7 +125,8 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5">
+      <CelebrationBurst active={solved} variant="stars" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-sky-700">Comprensión auditiva · Listening</p>
@@ -139,11 +141,11 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       </div>
 
       {/* Speech Synthesis Player */}
-      <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 sm:p-5">
+      <div className="rounded-2xl border border-b-4 border-sky-200 bg-gradient-to-b from-sky-50/90 to-sky-100/70 p-4 shadow-xs sm:p-5">
         <p className="mb-3 text-xs font-semibold text-sky-900">
           Usa la bocina para velocidad normal o la tortuga para escuchar más despacio:
         </p>
-        <AudioControls text={challenge.audioText} />
+        <AudioControls text={challenge.audioText} soundMuted={soundMuted} />
       </div>
 
       {/* Optional Pre-Answer Hint with Similar Example */}
@@ -164,15 +166,15 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                 disabled={solved}
                 onClick={() => handleSelectVisual(opt.id)}
                 aria-label={`${opt.label} (${opt.spanish})`}
-                className={`flex min-h-[84px] items-center gap-4 rounded-2xl border border-b-4 p-4 text-left transition-all focus-visible:outline-2 focus-visible:outline-sky-600 ${
+                className={`btn-3d flex min-h-[84px] items-center gap-4 rounded-2xl border-2 border-b-[5px] p-4 text-left focus-visible:outline-2 focus-visible:outline-sky-600 ${
                   isCorrect
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
+                    ? 'border-emerald-500 border-b-emerald-600 bg-gradient-to-b from-emerald-50 to-emerald-100/70 text-emerald-950'
                     : isWrong
-                      ? 'border-rose-400 bg-rose-50 text-rose-950'
-                      : 'border-slate-200 bg-white text-slate-900 hover:border-sky-300 hover:bg-sky-50/40 active:translate-y-0.5'
+                      ? 'border-rose-400 border-b-rose-500 bg-rose-50 text-rose-950'
+                      : 'border-slate-200 border-b-slate-300 bg-white text-slate-900 hover:border-sky-300 hover:bg-sky-50/40'
                 }`}
               >
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-3xl" aria-hidden="true">
+                <span className="cube-3d flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 text-3xl border border-slate-200" aria-hidden="true">
                   {opt.emoji}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -195,7 +197,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       {/* Mode 2: Word Bank Completion */}
       {challenge.mode === 'word_bank' && challenge.sentenceParts && challenge.wordBank && (
         <div className="space-y-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
+          <div className="panel-3d rounded-2xl p-5 text-center">
             <p className="font-display text-xl font-bold text-slate-900 sm:text-2xl">
               {challenge.sentenceParts[0]}
               <span
@@ -225,12 +227,12 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                   type="button"
                   disabled={solved}
                   onClick={() => handleSelectWord(word)}
-                  className={`inline-flex min-h-[48px] items-center gap-1.5 rounded-xl border border-b-4 px-5 py-2.5 font-display text-base font-bold transition-transform active:translate-y-0.5 ${
+                  className={`btn-3d inline-flex min-h-[48px] items-center gap-1.5 rounded-xl border-2 border-b-[5px] px-5 py-2.5 font-display text-base font-bold ${
                     isCorrect
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      ? 'border-emerald-600 border-b-emerald-800 bg-emerald-600 text-white'
                       : isWrong
-                        ? 'border-rose-400 bg-rose-50 text-rose-900'
-                        : 'border-slate-300 bg-white text-slate-900 hover:border-sky-400 hover:bg-sky-50'
+                        ? 'border-rose-400 border-b-rose-500 bg-rose-50 text-rose-900'
+                        : 'border-slate-300 border-b-slate-400 bg-white text-slate-900 hover:border-sky-400 hover:bg-sky-50'
                   }`}
                 >
                   <span>{word}</span>
@@ -253,8 +255,11 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={() => onComplete(!hadMistake)}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700 active:translate-y-0.5"
+              onClick={() => {
+                playTapSound(soundMuted);
+                onComplete(!hadMistake);
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
             >
               Continuar
             </button>

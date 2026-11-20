@@ -3,9 +3,10 @@ import { ArrowLeft, ArrowRight, BookOpenCheck, RotateCcw, Star, Trophy, Unlock, 
 import type { WeekLesson } from '../types/curriculum';
 import type { WeekMistakeReviewItem } from '../utils/pedagogicalFeedback';
 import { PASS_ACCURACY_THRESHOLD } from '../utils/progress';
-import { playVictoryFanfare } from '../utils/soundFx';
+import { playTapSound, playVictoryFanfare } from '../utils/soundFx';
 import { speakEnglish, stopSpeech } from '../utils/speech';
-import { MascotGuide, type MascotMood } from './MascotGuide';
+import { CelebrationBurst } from './CelebrationBurst';
+import { MascotGuide, VolumetricTrophySvg, type MascotMood } from './MascotGuide';
 import { ListeningGame } from './games/ListeningGame';
 import { MemoryMatchGame } from './games/MemoryMatchGame';
 import { ReadingGame } from './games/ReadingGame';
@@ -120,9 +121,10 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
   if (summary) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8 space-y-6">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-50 border border-amber-200">
-            <Trophy className="h-11 w-11 text-amber-500" aria-hidden="true" />
+        <div className="panel-3d relative rounded-3xl p-6 text-center sm:p-8 space-y-6">
+          <CelebrationBurst active={summary.passed} variant="confetti" />
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl border border-b-4 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100 shadow-inner">
+            <VolumetricTrophySvg size={64} />
           </div>
 
           <div>
@@ -139,9 +141,9 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
             {[1, 2, 3].map((s) => (
               <Star
                 key={s}
-                className={`h-12 w-12 ${
+                className={`h-12 w-12 transition-transform ${
                   s <= summary.starsEarned
-                    ? 'fill-amber-400 text-amber-500'
+                    ? 'animate-medal-float fill-amber-400 text-amber-500 drop-shadow-[0_4px_8px_rgba(245,158,11,0.45)]'
                     : 'text-slate-200'
                 }`}
                 aria-hidden="true"
@@ -185,6 +187,7 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
           ) : null}
 
           <MascotGuide
+            soundMuted={soundMuted}
             mood={summary.passed ? 'celebrating' : 'encouraging'}
             message={
               summary.passed
@@ -265,8 +268,11 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <button
               type="button"
-              onClick={onExit}
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-b-4 border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 hover:bg-slate-50"
+              onClick={() => {
+                playTapSound(soundMuted);
+                onExit();
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-b-[5px] border-slate-300 border-b-slate-400 bg-white px-5 py-3 text-sm font-bold text-slate-800 hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span>Volver al mapa</span>
@@ -274,8 +280,11 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
 
             <button
               type="button"
-              onClick={handleRestartWeek}
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-b-4 border-sky-700 bg-sky-500 px-5 py-3 text-sm font-bold text-white hover:bg-sky-600"
+              onClick={() => {
+                playTapSound(soundMuted);
+                handleRestartWeek();
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-b-[5px] border-sky-800 bg-gradient-to-b from-sky-400 to-sky-600 px-5 py-3 text-sm font-bold text-white hover:to-sky-700"
             >
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
               <span>Repetir semana</span>
@@ -284,8 +293,11 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
             {summary.passed && hasNextPlayableWeek && (
               <button
                 type="button"
-                onClick={onGoToNextWeek}
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-700"
+                onClick={() => {
+                  playTapSound(soundMuted);
+                  onGoToNextWeek();
+                }}
+                className="btn-3d inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-b-[5px] border-emerald-800 bg-gradient-to-b from-emerald-500 to-emerald-600 px-6 py-3 text-sm font-bold text-white hover:to-emerald-700"
               >
                 <span>Ir a Semana {week.weekNumber + 1}</span>
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -301,45 +313,47 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
 
   return (
     <main className="mx-auto max-w-4xl space-y-5 px-4 py-6 sm:px-6">
-      {/* Lesson Top Progress Strip */}
+      {/* Lesson Top 3D Progress Strip */}
       <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={() => {
+            playTapSound(soundMuted);
             stopSpeech();
             onExit();
           }}
           aria-label="Salir al mapa de aprendizaje"
-          className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shrink-0"
+          className="btn-3d inline-flex min-h-[42px] items-center gap-1.5 rounded-xl border border-b-4 border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shrink-0"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           <span>Salir</span>
         </button>
 
         <div className="flex-1">
-          <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-500 tabular-nums">
+          <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600 tabular-nums">
             <span>Semana {week.weekNumber} · {week.titleEs}</span>
             <span>Reto {challengeIdx + 1} / {totalChallenges}</span>
           </div>
-          <div className="h-3.5 w-full overflow-hidden rounded-full bg-slate-200">
+          <div className="h-4 w-full overflow-hidden rounded-full border border-slate-300 bg-slate-200/80 shadow-inner">
             <div
-              className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+              className="h-full rounded-full bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
         </div>
       </div>
 
-      {/* Mascot Feedback Banner */}
+      {/* Interactive Volumetric Mascot Feedback Banner */}
       <MascotGuide
         compact
+        soundMuted={soundMuted}
         mood={mascotState.mood}
         message={mascotState.message}
         subMessage={mascotState.subMessage}
       />
 
-      {/* Active Interactive Mechanic Stage */}
-      <section className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5 sm:p-7 shadow-xs">
+      {/* Active Interactive 3D Game Stage */}
+      <section className="panel-3d relative rounded-3xl p-5 sm:p-7">
         {currentChallenge.type === 'listening' && (
           <ListeningGame
             key={currentChallenge.id}

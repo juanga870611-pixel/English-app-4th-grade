@@ -12,7 +12,8 @@ import {
   type SequenceAnalysis,
   type WeekMistakeReviewItem,
 } from '../../utils/pedagogicalFeedback';
-import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
+import { playRetryTone, playSuccessChime, playTapSound } from '../../utils/soundFx';
+import { CelebrationBurst } from '../CelebrationBurst';
 
 interface ReadingGameProps {
   challenge: ReadingChallenge;
@@ -154,7 +155,8 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
   const fullTextEn = challenge.passageEn.join(' ');
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5">
+      <CelebrationBurst active={solved} variant="stars" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-bold text-amber-700">
@@ -171,8 +173,11 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
           )}
           <button
             type="button"
-            onClick={() => setShowTranslation((v) => !v)}
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            onClick={() => {
+              playTapSound(soundMuted);
+              setShowTranslation((v) => !v);
+            }}
+            className="btn-3d inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-b-4 border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
           >
             <BookOpen className="h-4 w-4 text-amber-600" aria-hidden="true" />
             <span>{showTranslation ? 'Ocultar ayuda en español' : 'Ver ayuda en español'}</span>
@@ -181,10 +186,10 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
       </div>
 
       {/* Story Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="panel-3d rounded-2xl p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <div
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-4xl border border-amber-200"
+            className="cube-3d flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-50 to-amber-100 text-4xl border border-amber-200"
             aria-hidden="true"
           >
             {challenge.sceneEmoji}
@@ -209,6 +214,7 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
             text={fullTextEn}
             labelNormal="Escuchar lectura"
             labelSlow="Leer despacio"
+            soundMuted={soundMuted}
             compact
           />
         </div>
@@ -238,12 +244,12 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
                   type="button"
                   disabled={solved}
                   onClick={() => handleSelectOption(opt.id)}
-                  className={`flex min-h-[56px] w-full items-center gap-3.5 rounded-2xl border border-b-4 px-4 py-3 text-left transition-all ${
+                  className={`btn-3d flex min-h-[56px] w-full items-center gap-3.5 rounded-2xl border-2 border-b-[5px] px-4 py-3 text-left ${
                     isCorrect
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
+                      ? 'border-emerald-500 border-b-emerald-600 bg-gradient-to-b from-emerald-50 to-emerald-100/70 text-emerald-950'
                       : isWrong
-                        ? 'border-rose-400 bg-rose-50 text-rose-950'
-                        : 'border-slate-200 bg-white text-slate-900 hover:border-sky-300 hover:bg-sky-50/40'
+                        ? 'border-rose-400 border-b-rose-500 bg-rose-50 text-rose-950'
+                        : 'border-slate-200 border-b-slate-300 bg-white text-slate-900 hover:border-sky-300 hover:bg-sky-50/40'
                   }`}
                 >
                   {opt.emoji && (
@@ -284,12 +290,12 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center gap-3 rounded-2xl border p-3.5 transition-colors ${
+                  className={`flex items-center gap-3 rounded-2xl border border-b-4 p-3.5 transition-colors shadow-xs ${
                     solved || isRowRight
-                      ? 'border-emerald-400 bg-emerald-50'
+                      ? 'border-emerald-400 border-b-emerald-500 bg-emerald-50'
                       : isRowWrong
-                        ? 'border-rose-400 bg-rose-50'
-                        : 'border-slate-200 bg-white'
+                        ? 'border-rose-400 border-b-rose-500 bg-rose-50'
+                        : 'border-slate-200 border-b-slate-300 bg-white'
                   }`}
                 >
                   <span
@@ -325,18 +331,24 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
                       <button
                         type="button"
                         disabled={idx === 0}
-                        onClick={() => moveItem(idx, -1)}
+                        onClick={() => {
+                          playTapSound(soundMuted);
+                          moveItem(idx, -1);
+                        }}
                         aria-label={`Subir evento: ${item.textEn}`}
-                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
+                        className="btn-3d flex h-10 w-10 items-center justify-center rounded-xl border border-b-[3px] border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
                       >
                         <ArrowUp className="h-4 w-4" aria-hidden="true" />
                       </button>
                       <button
                         type="button"
                         disabled={idx === seqOrder.length - 1}
-                        onClick={() => moveItem(idx, 1)}
+                        onClick={() => {
+                          playTapSound(soundMuted);
+                          moveItem(idx, 1);
+                        }}
                         aria-label={`Bajar evento: ${item.textEn}`}
-                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
+                        className="btn-3d flex h-10 w-10 items-center justify-center rounded-xl border border-b-[3px] border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-35"
                       >
                         <ArrowDown className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -352,7 +364,7 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
               <button
                 type="button"
                 onClick={handleCheckSequence}
-                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-sky-800 bg-sky-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+                className="btn-3d inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-sky-800 bg-sky-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
               >
                 Comprobar orden
               </button>
@@ -369,8 +381,11 @@ export const ReadingGame: React.FC<ReadingGameProps> = ({
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={() => onComplete(!hadMistake)}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
+              onClick={() => {
+                playTapSound(soundMuted);
+                onComplete(!hadMistake);
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
             >
               Continuar
             </button>

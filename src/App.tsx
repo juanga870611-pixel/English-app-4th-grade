@@ -96,7 +96,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-gradient-to-b from-sky-50/80 via-slate-50 to-emerald-50/50 text-slate-900">
       <TopHudBar
         progress={progress}
         onOpenExport={() => setExportModalOpen(true)}
@@ -122,6 +122,7 @@ export default function App() {
       ) : (
         <LearningPath
           progress={progress}
+          soundMuted={progress.soundMuted}
           onSelectWeek={(week) => setActiveWeekNumber(week.weekNumber)}
           onChangePaceMode={handleChangePaceMode}
         />

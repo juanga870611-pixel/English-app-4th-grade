@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Clock, Heart, Play, RotateCcw, Trophy } from 'lucide-react';
+import { Clock, Heart, Play, RotateCcw } from 'lucide-react';
 import type { ArcadeChallenge, ArcadeItem } from '../../types/curriculum';
 import { BetoFeedbackCard, HintExampleButton } from '../BetoFeedbackCard';
 import {
@@ -9,8 +9,10 @@ import {
   type BetoFeedbackPayload,
   type WeekMistakeReviewItem,
 } from '../../utils/pedagogicalFeedback';
-import { playRetryTone, playSuccessChime } from '../../utils/soundFx';
+import { playRetryTone, playSuccessChime, playTapSound } from '../../utils/soundFx';
 import { speakEnglish } from '../../utils/speech';
+import { CelebrationBurst } from '../CelebrationBurst';
+import { VolumetricTrophySvg } from '../MascotGuide';
 
 interface ArcadeGameProps {
   challenge: ArcadeChallenge;
@@ -186,7 +188,8 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
   }, [gameState, pendingError, handleSort]);
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5">
+      <CelebrationBurst active={gameState === 'WON' || feedbackFlash === 'correct'} variant="confetti" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-rose-700">Mini-juego Arcade · Clasificación rápida</p>
@@ -206,7 +209,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
       )}
 
       {/* Compact Game HUD */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+      <div className="panel-3d flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3">
         <div className="flex items-center gap-1.5" aria-label={`Vidas restantes: ${lives}`}>
           {[1, 2, 3].map((heartIdx) => (
             <Heart
@@ -237,7 +240,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
 
       {/* READY STATE */}
       {gameState === 'READY' && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center space-y-4">
+        <div className="panel-3d rounded-2xl p-8 text-center space-y-4">
           <div className="flex justify-center gap-4 text-4xl" aria-hidden="true">
             <span>{challenge.leftBucket.emoji}</span>
             <span>⚡</span>
@@ -251,8 +254,11 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
           </p>
           <button
             type="button"
-            onClick={startOrRestart}
-            className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-7 py-3 text-base font-bold text-white hover:bg-emerald-700"
+            onClick={() => {
+              playTapSound(soundMuted);
+              startOrRestart();
+            }}
+            className="btn-3d inline-flex min-h-[48px] items-center gap-2 rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-7 py-3 text-base font-bold text-white hover:bg-emerald-700"
           >
             <Play className="h-5 w-5" aria-hidden="true" />
             <span>¡Empezar juego!</span>
@@ -262,17 +268,17 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
 
       {/* PLAYING STATE */}
       {gameState === 'PLAYING' && currentItem && (
-        <div className="space-y-5">
+        <div className="perspective-1000 space-y-5">
           <div
-            className={`mx-auto max-w-sm rounded-2xl border-2 p-6 text-center transition-transform ${
+            className={`mx-auto max-w-sm rounded-3xl border-2 border-b-[7px] p-6 text-center transition-transform duration-200 ${
               feedbackFlash === 'correct'
-                ? 'scale-105 border-emerald-500 bg-emerald-50'
+                ? 'scale-105 -translate-y-1 border-emerald-500 border-b-emerald-700 bg-gradient-to-b from-white to-emerald-50 shadow-[0_18px_32px_-12px_rgba(16,185,129,0.35)]'
                 : feedbackFlash === 'wrong' || pendingError
-                  ? 'border-rose-500 bg-rose-50'
-                  : 'border-slate-200 bg-white shadow-sm'
+                  ? 'border-rose-500 border-b-rose-700 bg-rose-50 shadow-[0_14px_24px_-12px_rgba(225,29,72,0.28)]'
+                  : 'border-slate-200 border-b-slate-300 bg-gradient-to-b from-white to-slate-50 shadow-[0_18px_30px_-14px_rgba(15,23,42,0.18)]'
             }`}
           >
-            <span className="block text-6xl" aria-hidden="true">
+            <span className="block text-6xl drop-shadow-sm" aria-hidden="true">
               {currentItem.emoji}
             </span>
             <p className="mt-3 font-display text-2xl font-extrabold text-slate-900">
@@ -297,7 +303,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
               <button
                 type="button"
                 onClick={() => handleSort('left')}
-                className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-4 border-emerald-600 bg-emerald-50 p-4 text-emerald-950 transition-transform hover:bg-emerald-100 active:translate-y-0.5"
+                className="btn-3d flex min-h-[92px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-[6px] border-emerald-600 border-b-emerald-800 bg-gradient-to-b from-emerald-50 to-emerald-100 p-4 text-emerald-950 hover:from-emerald-100 hover:to-emerald-200/70"
               >
                 <span className="text-3xl" aria-hidden="true">{challenge.leftBucket.emoji}</span>
                 <span className="font-display text-base font-extrabold">{challenge.leftBucket.labelEn}</span>
@@ -307,7 +313,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
               <button
                 type="button"
                 onClick={() => handleSort('right')}
-                className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-4 border-rose-500 bg-rose-50 p-4 text-rose-950 transition-transform hover:bg-rose-100 active:translate-y-0.5"
+                className="btn-3d flex min-h-[92px] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-b-[6px] border-rose-500 border-b-rose-700 bg-gradient-to-b from-rose-50 to-rose-100 p-4 text-rose-950 hover:from-rose-100 hover:to-rose-200/70"
               >
                 <span className="text-3xl" aria-hidden="true">{challenge.rightBucket.emoji}</span>
                 <span className="font-display text-base font-extrabold">{challenge.rightBucket.labelEn}</span>
@@ -320,7 +326,7 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
 
       {/* LOST STATE */}
       {gameState === 'LOST' && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center space-y-4">
+        <div className="rounded-2xl border-2 border-b-[6px] border-amber-300 border-b-amber-500 bg-gradient-to-b from-white to-amber-50 p-6 text-center space-y-4 shadow-sm">
           <p className="font-display text-xl font-extrabold text-amber-950">
             ¡Casi lo logras! Lograste {score} de {challenge.targetScore}.
           </p>
@@ -329,8 +335,11 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
           </p>
           <button
             type="button"
-            onClick={startOrRestart}
-            className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border-b-4 border-amber-700 bg-amber-500 px-6 py-3 text-base font-bold text-white hover:bg-amber-600"
+            onClick={() => {
+              playTapSound(soundMuted);
+              startOrRestart();
+            }}
+            className="btn-3d inline-flex min-h-[48px] items-center gap-2 rounded-xl border-b-4 border-amber-700 bg-amber-500 px-6 py-3 text-base font-bold text-white hover:bg-amber-600"
           >
             <RotateCcw className="h-5 w-5" aria-hidden="true" />
             <span>Reintentar juego</span>
@@ -342,15 +351,20 @@ export const ArcadeGame: React.FC<ArcadeGameProps> = ({
       {gameState === 'WON' && (
         <div className="space-y-4">
           <BetoFeedbackCard payload={successPayload} soundMuted={soundMuted} />
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center space-y-4">
-            <Trophy className="mx-auto h-10 w-10 text-amber-500" aria-hidden="true" />
+          <div className="panel-3d-emerald rounded-2xl p-6 text-center space-y-4">
+            <div className="flex justify-center">
+              <VolumetricTrophySvg size={60} />
+            </div>
             <p className="font-display text-xl font-extrabold text-emerald-950">
               ¡Reto Arcade superado! ({score}/{challenge.targetScore})
             </p>
             <button
               type="button"
-              onClick={() => onComplete(!hadMistake)}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
+              onClick={() => {
+                playTapSound(soundMuted);
+                onComplete(!hadMistake);
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
             >
               Continuar
             </button>

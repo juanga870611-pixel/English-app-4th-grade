@@ -11,8 +11,9 @@ import {
   type WeekMistakeReviewItem,
   type WordOrderAnalysis,
 } from '../../utils/pedagogicalFeedback';
-import { playFlipSound, playRetryTone, playSuccessChime } from '../../utils/soundFx';
+import { playFlipSound, playRetryTone, playSuccessChime, playTapSound } from '../../utils/soundFx';
 import { speakEnglish } from '../../utils/speech';
+import { CelebrationBurst } from '../CelebrationBurst';
 
 interface WordTile {
   id: string;
@@ -143,7 +144,8 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5">
+      <CelebrationBurst active={solved} variant="confetti" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-indigo-700">Ordenar oraciones · Word Order</p>
@@ -167,12 +169,12 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDropToTray}
         aria-label="Zona de construcción de la oración"
-        className={`min-h-[92px] rounded-2xl border-2 border-dashed p-4 transition-colors ${
+        className={`min-h-[96px] rounded-2xl border-2 border-dashed p-4 shadow-inner transition-colors ${
           solved
             ? 'border-emerald-500 bg-emerald-50'
             : attemptAnalysis
               ? 'border-rose-300 bg-rose-50/40'
-              : 'border-slate-300 bg-white'
+              : 'border-slate-300 bg-slate-50/70'
         }`}
       >
         {selectedTiles.length === 0 ? (
@@ -199,14 +201,14 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
                         ? ' (posición incorrecta)'
                         : ''
                   }`}
-                  className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-b-4 px-4 py-2 font-display text-base font-bold transition-transform active:translate-y-0.5 ${
+                  className={`btn-3d inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border-2 border-b-[5px] px-4 py-2 font-display text-base font-bold ${
                     solved
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      ? 'border-emerald-600 border-b-emerald-800 bg-emerald-600 text-white'
                       : isTileWrong
-                        ? 'border-rose-500 bg-rose-100 text-rose-950'
+                        ? 'border-rose-500 border-b-rose-600 bg-rose-100 text-rose-950'
                         : isTileRight
-                          ? 'border-emerald-600 bg-emerald-500 text-white'
-                          : 'border-sky-700 bg-sky-500 text-white hover:bg-sky-600'
+                          ? 'border-emerald-600 border-b-emerald-700 bg-emerald-500 text-white'
+                          : 'border-sky-600 border-b-sky-800 bg-sky-500 text-white hover:bg-sky-600'
                   }`}
                 >
                   <span>{tile.word}</span>
@@ -249,19 +251,27 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
         </div>
 
         <div className="flex flex-wrap gap-2.5">
-          {bankTiles.map((tile) => (
-            <button
-              key={tile.id}
-              type="button"
-              draggable={!solved}
-              onDragStart={() => setDraggedTileId(tile.id)}
-              disabled={solved}
-              onClick={() => addTile(tile.id)}
-              className="min-h-[46px] rounded-xl border border-b-4 border-slate-300 bg-white px-4 py-2 font-display text-base font-bold text-slate-900 hover:border-sky-400 hover:bg-sky-50 active:translate-y-0.5"
-            >
-              {tile.word}
-            </button>
-          ))}
+          {bankTiles.map((tile) => {
+            const isGrabbed = draggedTileId === tile.id;
+            return (
+              <button
+                key={tile.id}
+                type="button"
+                draggable={!solved}
+                onDragStart={() => setDraggedTileId(tile.id)}
+                onDragEnd={() => setDraggedTileId(null)}
+                disabled={solved}
+                onClick={() => addTile(tile.id)}
+                className={`btn-3d min-h-[46px] rounded-xl border-2 border-b-[5px] px-4 py-2 font-display text-base font-bold transition-transform ${
+                  isGrabbed
+                    ? 'scale-105 -translate-y-1.5 rotate-[-1.5deg] border-sky-500 border-b-sky-700 bg-sky-50 text-sky-950 shadow-xl ring-2 ring-sky-400'
+                    : 'border-slate-300 border-b-slate-400 bg-white text-slate-900 hover:border-sky-400 hover:bg-sky-50'
+                }`}
+              >
+                {tile.word}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -269,17 +279,21 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
 
       {solved ? (
         <div className="space-y-4">
-          <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="panel-3d-emerald flex flex-col gap-4 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between">
             <AudioControls
               text={challenge.correctSentence}
               labelNormal="Escuchar oración"
               labelSlow="Lento"
+              soundMuted={soundMuted}
               compact
             />
             <button
               type="button"
-              onClick={() => onComplete(!hadMistake)}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
+              onClick={() => {
+                playTapSound(soundMuted);
+                onComplete(!hadMistake);
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700"
             >
               Continuar
             </button>
@@ -292,7 +306,7 @@ export const WordOrderGame: React.FC<WordOrderGameProps> = ({
             type="button"
             disabled={selectedTiles.length === 0}
             onClick={handleCheck}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
+            className="btn-3d inline-flex min-h-[48px] items-center justify-center rounded-xl border-b-4 border-emerald-800 bg-emerald-600 px-6 py-3 text-base font-bold text-white hover:bg-emerald-700 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
           >
             Comprobar oración
           </button>
