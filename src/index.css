@@ -243,6 +243,25 @@
   animation: popBlockIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes micWave {
+  0% {
+    opacity: 0.72;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.68);
+  }
+}
+
+.animate-mic-wave {
+  animation: micWave 1.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.animate-mic-wave-delayed {
+  animation: micWave 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.55s infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

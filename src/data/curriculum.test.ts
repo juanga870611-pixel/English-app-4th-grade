@@ -121,3 +121,52 @@ test('every week flagged hasMicroStory includes a micro_story challenge', () => 
     );
   }
 });
+
+test('all 36 weeks include 2-3 speaking challenges with gradual progression across modules 1-4', () => {
+  for (const week of CURRICULUM_WEEKS) {
+    const speakingChallenges = week.challenges.filter((c) => c.type === 'speaking');
+    assert.ok(
+      speakingChallenges.length >= 2 && speakingChallenges.length <= 3,
+      `Week ${week.weekNumber} expected 2-3 speaking challenges, got ${speakingChallenges.length}`
+    );
+
+    for (const sc of speakingChallenges) {
+      assert.equal(
+        sc.oralLevel,
+        week.moduleId,
+        `Week ${week.weekNumber} challenge ${sc.id} expected oralLevel ${week.moduleId}, got ${sc.oralLevel}`
+      );
+      assert.ok(sc.targetPhraseEn.trim().length > 0, `${sc.id} missing targetPhraseEn`);
+      assert.ok(sc.translationEs.trim().length > 0, `${sc.id} missing translationEs`);
+
+      const wordCount = sc.targetPhraseEn.trim().split(/\s+/).length;
+
+      if (week.moduleId === 1) {
+        assert.ok(
+          wordCount >= 2 && wordCount <= 3,
+          `${sc.id} Module 1 should be 2-3 words, got ${wordCount} ("${sc.targetPhraseEn}")`
+        );
+      } else if (week.moduleId === 2) {
+        assert.ok(
+          wordCount >= 4 && wordCount <= 5,
+          `${sc.id} Module 2 should be 4-5 words, got ${wordCount} ("${sc.targetPhraseEn}")`
+        );
+      } else if (week.moduleId === 3) {
+        assert.ok(
+          wordCount >= 5,
+          `${sc.id} Module 3 should be a complete sentence (>=5 words), got ${wordCount} ("${sc.targetPhraseEn}")`
+        );
+      } else if (week.moduleId === 4) {
+        assert.ok(
+          Boolean(sc.betoQuestionEn?.trim()) && Boolean(sc.betoQuestionEs?.trim()),
+          `${sc.id} Module 4 must include Beto question in EN and ES`
+        );
+        assert.ok(
+          wordCount >= 4,
+          `${sc.id} Module 4 response should be a complete sentence (>=4 words), got ${wordCount} ("${sc.targetPhraseEn}")`
+        );
+      }
+    }
+  }
+});
+

@@ -28,7 +28,10 @@ function loadProgressFromStorage(): StudentProgress {
 
 export default function App() {
   const [progress, setProgress] = useState<StudentProgress>(() => loadProgressFromStorage());
-  const [activeWeekNumber, setActiveWeekNumber] = useState<number | null>(null);
+  const [activeSession, setActiveSession] = useState<{
+    weekNumber: number;
+    mode: 'full' | 'speaking_only';
+  } | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
   // Auto-save progress to localStorage
@@ -41,8 +44,8 @@ export default function App() {
   }, [progress]);
 
   const activeWeek: WeekLesson | undefined =
-    activeWeekNumber !== null
-      ? CURRICULUM_WEEKS.find((w) => w.weekNumber === activeWeekNumber)
+    activeSession !== null
+      ? CURRICULUM_WEEKS.find((w) => w.weekNumber === activeSession.weekNumber)
       : undefined;
 
   const nextWeekAfterActive =
@@ -92,7 +95,7 @@ export default function App() {
   const handleResetProgress = () => {
     const fresh = createInitialProgress();
     setProgress(fresh);
-    setActiveWeekNumber(null);
+    setActiveSession(null);
   };
 
   return (
@@ -103,19 +106,23 @@ export default function App() {
         onToggleMute={handleToggleMute}
       />
 
-      {activeWeek ? (
+      {activeWeek && activeSession ? (
         <LessonRunner
-          key={activeWeek.weekNumber}
+          key={`${activeWeek.weekNumber}-${activeSession.mode}`}
           week={activeWeek}
+          mode={activeSession.mode}
           soundMuted={progress.soundMuted}
           hasNextPlayableWeek={Boolean(nextWeekAfterActive?.isImplemented)}
-          onExit={() => setActiveWeekNumber(null)}
+          onExit={() => setActiveSession(null)}
+          onSwitchToFullWeek={() =>
+            setActiveSession({ weekNumber: activeWeek.weekNumber, mode: 'full' })
+          }
           onFinishWeek={handleFinishWeek}
           onGoToNextWeek={() => {
             if (nextWeekAfterActive?.isImplemented) {
-              setActiveWeekNumber(nextWeekAfterActive.weekNumber);
+              setActiveSession({ weekNumber: nextWeekAfterActive.weekNumber, mode: 'full' });
             } else {
-              setActiveWeekNumber(null);
+              setActiveSession(null);
             }
           }}
         />
@@ -123,7 +130,9 @@ export default function App() {
         <LearningPath
           progress={progress}
           soundMuted={progress.soundMuted}
-          onSelectWeek={(week) => setActiveWeekNumber(week.weekNumber)}
+          onSelectWeek={(week, mode = 'full') =>
+            setActiveSession({ weekNumber: week.weekNumber, mode })
+          }
           onChangePaceMode={handleChangePaceMode}
         />
       )}

@@ -96,6 +96,7 @@ function pickVoice(langPrefix: 'en' | 'es'): SpeechSynthesisVoice | null {
 
 export interface SpeakOptions {
   slow?: boolean;
+  rate?: number;
   lang?: 'en-US' | 'es-CO';
   muted?: boolean;
   onStart?: () => void;
@@ -106,6 +107,7 @@ export interface SpeakOptions {
 export function speakWithKaraoke(text: string, options: SpeakOptions = {}): void {
   const {
     slow = false,
+    rate,
     lang = 'en-US',
     muted = false,
     onStart,
@@ -157,7 +159,7 @@ export function speakWithKaraoke(text: string, options: SpeakOptions = {}): void
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
-  utterance.rate = slow ? 0.62 : lang === 'es-CO' ? 1.0 : 0.94;
+  utterance.rate = rate ?? (slow ? 0.7 : lang === 'es-CO' ? 1.0 : 0.94);
   utterance.pitch = 1.05;
 
   const voice = pickVoice(lang.startsWith('es') ? 'es' : 'en');

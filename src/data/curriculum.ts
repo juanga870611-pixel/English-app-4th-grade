@@ -3,6 +3,7 @@ import { MODULE_1_WEEKS_5_TO_9 } from './module1Weeks5to9';
 import { MODULE_2_WEEKS } from './module2Weeks';
 import { MODULE_3_WEEKS } from './module3Weeks';
 import { MODULE_4_WEEKS } from './module4Weeks';
+import { SPEAKING_BY_WEEK } from './speakingChallenges';
 
 export const CURRICULUM_MODULES: CurriculumModule[] = [
   {
@@ -47,8 +48,8 @@ export const CURRICULUM_MODULES: CurriculumModule[] = [
   },
 ];
 
-// All 36 weeks across Modules 1–4 are 100% implemented with interactive challenges.
-export const CURRICULUM_WEEKS: WeekLesson[] = [
+// Base 36 weeks across Modules 1–4
+const BASE_CURRICULUM_WEEKS: WeekLesson[] = [
   // =========================================================================
   // MODULE 1 - WEEK 1: My Body & Hygiene Habits
   // =========================================================================
@@ -630,3 +631,9 @@ export const CURRICULUM_WEEKS: WeekLesson[] = [
   ...MODULE_3_WEEKS,
   ...MODULE_4_WEEKS,
 ];
+
+// Integrate 2–3 Speaking challenges per week across all 36 weeks (Levels 1–4)
+export const CURRICULUM_WEEKS: WeekLesson[] = BASE_CURRICULUM_WEEKS.map((week) => ({
+  ...week,
+  challenges: [...week.challenges, ...(SPEAKING_BY_WEEK[week.weekNumber] ?? [])],
+}));

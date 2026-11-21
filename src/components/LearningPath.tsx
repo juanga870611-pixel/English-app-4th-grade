@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, CheckCircle2, Lock, Play, Rocket, Sparkles, Star, Zap } from 'lucide-react';
+import { BookOpen, CheckCircle2, Lock, Mic, Play, Rocket, Sparkles, Star, Zap } from 'lucide-react';
 import { CURRICULUM_MODULES, CURRICULUM_WEEKS } from '../data/curriculum';
 import type { ModuleId, PaceMode, StudentProgress, WeekLesson } from '../types/curriculum';
 import { calculatePaceProjection, PASS_ACCURACY_THRESHOLD, TOTAL_WEEKS } from '../utils/progress';
@@ -10,7 +10,7 @@ import { VocabFlashcardDeck } from './VocabFlashcardDeck';
 interface LearningPathProps {
   progress: StudentProgress;
   soundMuted: boolean;
-  onSelectWeek: (week: WeekLesson) => void;
+  onSelectWeek: (week: WeekLesson, mode?: 'full' | 'speaking_only') => void;
   onChangePaceMode: (mode: PaceMode) => void;
 }
 
@@ -331,6 +331,8 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                         <span>Semana {week.weekNumber}</span>
                         <span aria-hidden="true">·</span>
                         <span>{week.isImplemented ? `${week.challenges.length} retos` : 'Próxima entrega'}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="text-sky-700 font-bold">Speaking Nivel {week.moduleId}</span>
                         {week.hasMicroStory && (
                           <>
                             <span aria-hidden="true">·</span>
@@ -386,12 +388,27 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                       </button>
                     )}
 
+                    {canPlay && (
+                      <button
+                        type="button"
+                        data-testid={`speaking-launch-week-${week.weekNumber}`}
+                        onClick={() => {
+                          playTapSound(soundMuted);
+                          onSelectWeek(week, 'speaking_only');
+                        }}
+                        className="btn-3d inline-flex min-h-[42px] items-center gap-1.5 rounded-xl border border-b-4 border-sky-300 border-b-sky-500 bg-sky-50 px-3.5 py-2 text-xs font-bold text-sky-900 hover:bg-sky-100 whitespace-nowrap"
+                      >
+                        <Mic className="h-4 w-4 text-sky-600" aria-hidden="true" />
+                        <span>Speaking</span>
+                      </button>
+                    )}
+
                     {canPlay ? (
                       <button
                         type="button"
                         onClick={() => {
                           playTapSound(soundMuted);
-                          onSelectWeek(week);
+                          onSelectWeek(week, 'full');
                         }}
                         className={`btn-3d inline-flex min-h-[44px] items-center gap-2 rounded-xl border-b-[5px] px-5 py-2.5 text-sm font-bold whitespace-nowrap ${
                           isCompleted

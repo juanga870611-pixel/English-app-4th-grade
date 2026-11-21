@@ -2,6 +2,8 @@ export type ModuleId = 1 | 2 | 3 | 4;
 
 export type PaceMode = 'standard_9m' | 'fast_7m';
 
+export type OralLevel = 1 | 2 | 3 | 4;
+
 export type ChallengeType =
   | 'listening'
   | 'memory'
@@ -9,7 +11,8 @@ export type ChallengeType =
   | 'word_search'
   | 'word_order'
   | 'micro_story'
-  | 'arcade';
+  | 'arcade'
+  | 'speaking';
 
 export interface VocabItem {
   id: string;
@@ -156,6 +159,20 @@ export interface ArcadeChallenge {
   items: ArcadeItem[];
 }
 
+export interface SpeakingChallenge {
+  id: string;
+  type: 'speaking';
+  oralLevel: OralLevel;
+  promptEs: string;
+  targetPhraseEn: string;
+  translationEs: string;
+  emoji: string;
+  hintEs: string;
+  // Level 4 conversational prompt asked by Beto
+  betoQuestionEn?: string;
+  betoQuestionEs?: string;
+}
+
 export type WeekChallenge =
   | ListeningChallenge
   | MemoryChallenge
@@ -163,7 +180,8 @@ export type WeekChallenge =
   | WordSearchChallenge
   | WordOrderChallenge
   | MicroStoryChallenge
-  | ArcadeChallenge;
+  | ArcadeChallenge
+  | SpeakingChallenge;
 
 export interface WeekLesson {
   weekNumber: number; // 1 to 36

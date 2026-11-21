@@ -1131,6 +1131,23 @@ export function getPreAnswerHint(
     };
   }
 
+  if (challenge.type === 'speaking') {
+    const { example, blocks } = pickSafeBlueprintExample(blueprint, challenge.targetPhraseEn);
+    const sceneTheme = detectQuestionSpecificScene(challenge.targetPhraseEn, blueprint.sceneTheme);
+    return {
+      kind: 'hint',
+      titleEs: `Pista oral · Nivel ${challenge.oralLevel} (Semana ${weekNum})`,
+      explanationEs: `Escucha primero con la tortuga 🐢 (velocidad 0.7x) cómo suena esta frase de ${blueprint.topicEs}. ${challenge.hintEs}`,
+      example,
+      sceneTheme,
+      exerciseCategory: 'open_sentence',
+      grammarBlocks: blocks,
+      step1Label: 'Consejo de pronunciación',
+      step2Label: 'Frase modelo en audio',
+      step3Label: '¡A hablar en inglés!',
+    };
+  }
+
   // Arcade
   return {
     kind: 'hint',

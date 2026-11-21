@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpenCheck, RotateCcw, Star, Trophy, Unlock, Volume2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpenCheck, Mic, Play, RotateCcw, Star, Trophy, Unlock, Volume2 } from 'lucide-react';
 import type { WeekLesson } from '../types/curriculum';
 import type { WeekMistakeReviewItem } from '../utils/pedagogicalFeedback';
 import { PASS_ACCURACY_THRESHOLD } from '../utils/progress';
@@ -14,12 +14,15 @@ import { WordSearchGame } from './games/WordSearchGame';
 import { WordOrderGame } from './games/WordOrderGame';
 import { MicroStoryGame } from './games/MicroStoryGame';
 import { ArcadeGame } from './games/ArcadeGame';
+import { SpeakingGame } from './games/SpeakingGame';
 
 interface LessonRunnerProps {
   week: WeekLesson;
+  mode?: 'full' | 'speaking_only';
   soundMuted: boolean;
   hasNextPlayableWeek: boolean;
   onExit: () => void;
+  onSwitchToFullWeek?: () => void;
   onFinishWeek: (accuracy: number) => {
     starsEarned: 1 | 2 | 3;
     xpEarned: number;
@@ -31,12 +34,19 @@ interface LessonRunnerProps {
 
 export const LessonRunner: React.FC<LessonRunnerProps> = ({
   week,
+  mode = 'full',
   soundMuted,
   hasNextPlayableWeek,
   onExit,
+  onSwitchToFullWeek,
   onFinishWeek,
   onGoToNextWeek,
 }) => {
+  const activeChallenges =
+    mode === 'speaking_only'
+      ? week.challenges.filter((c) => c.type === 'speaking')
+      : week.challenges;
+
   const [challengeIdx, setChallengeIdx] = useState(0);
   const [firstTryCount, setFirstTryCount] = useState(0);
   const [mistakesLog, setMistakesLog] = useState<WeekMistakeReviewItem[]>([]);
@@ -46,7 +56,10 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
     subMessage?: string;
   }>({
     mood: 'neutral',
-    message: `¡Vamos con la Semana ${week.weekNumber}: ${week.titleEs}!`,
+    message:
+      mode === 'speaking_only'
+        ? `¡Práctica Oral de la Semana ${week.weekNumber} (Nivel Oral ${week.moduleId})!`
+        : `¡Vamos con la Semana ${week.weekNumber}: ${week.titleEs}!`,
     subMessage: week.grammarFocus,
   });
 
@@ -57,15 +70,24 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
     passed: boolean;
     unlockedNextWeek: boolean;
   } | null>(null);
+  const [speakingOnlyDone, setSpeakingOnlyDone] = useState(false);
 
-  const totalChallenges = week.challenges.length;
-  const currentChallenge = week.challenges[challengeIdx];
+  const totalChallenges = activeChallenges.length;
+  const currentChallenge = activeChallenges[challengeIdx];
 
   const handleMistake = useCallback((hintEs: string) => {
     setMascotState({
       mood: 'encouraging',
       message: '¡Casi! Lee la explicación de Beto abajo e inténtalo de nuevo.',
       subMessage: hintEs,
+    });
+  }, []);
+
+  const handleSpeakingPass = useCallback((messageEs: string) => {
+    setMascotState({
+      mood: 'celebrating',
+      message: messageEs,
+      subMessage: 'Toca «Continuar» para avanzar al siguiente reto.',
     });
   }, []);
 
@@ -91,6 +113,9 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
           : '¡Bien hecho! Seguimos con el siguiente reto.',
         subMessage: `Reto ${challengeIdx + 2} de ${totalChallenges}`,
       });
+    } else if (mode === 'speaking_only') {
+      playVictoryFanfare(soundMuted);
+      setSpeakingOnlyDone(true);
     } else {
       const accuracy = Math.round(
         50 + (nextFirstTryCount / Math.max(1, totalChallenges)) * 50
@@ -110,12 +135,92 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
     setFirstTryCount(0);
     setMistakesLog([]);
     setSummary(null);
+    setSpeakingOnlyDone(false);
     setMascotState({
       mood: 'neutral',
-      message: `¡Nuevo intento en la Semana ${week.weekNumber}! Tú puedes.`,
+      message:
+        mode === 'speaking_only'
+          ? `¡Vamos a practicar Speaking de la Semana ${week.weekNumber} otra vez!`
+          : `¡Nuevo intento en la Semana ${week.weekNumber}! Tú puedes.`,
       subMessage: week.grammarFocus,
     });
   };
+
+  // Summary Screen after quick Speaking-only practice
+  if (speakingOnlyDone) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+        <div
+          data-testid="speaking-summary-screen"
+          className="panel-3d relative rounded-3xl p-6 text-center sm:p-8 space-y-6"
+        >
+          <CelebrationBurst active variant="confetti" />
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl border border-b-4 border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 shadow-inner">
+            <Mic className="h-12 w-12 text-sky-600" aria-hidden="true" />
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-sky-700">
+              Speaking · Nivel Oral {week.moduleId} · Semana {week.weekNumber}
+            </p>
+            <h1 className="mt-1 font-display text-2xl font-extrabold text-slate-900 sm:text-3xl">
+              ¡Excelente práctica en voz alta!
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Completaste los {totalChallenges} retos orales de «{week.titleEs}».
+            </p>
+          </div>
+
+          <MascotGuide
+            soundMuted={soundMuted}
+            mood="celebrating"
+            message="¡Tu pronunciación mejora cada vez que hablas en inglés!"
+            subMessage="Recuerda completar también la semana completa para sumar tu 80% y desbloquear la siguiente."
+          />
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                playTapSound(soundMuted);
+                onExit();
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-b-[5px] border-slate-300 border-b-slate-400 bg-white px-5 py-3 text-sm font-bold text-slate-800 hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              <span>Volver al mapa</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                playTapSound(soundMuted);
+                handleRestartWeek();
+              }}
+              className="btn-3d inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-b-[5px] border-sky-800 bg-gradient-to-b from-sky-400 to-sky-600 px-5 py-3 text-sm font-bold text-white hover:to-sky-700"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              <span>Practicar Speaking otra vez</span>
+            </button>
+
+            {onSwitchToFullWeek && (
+              <button
+                type="button"
+                onClick={() => {
+                  playTapSound(soundMuted);
+                  onSwitchToFullWeek();
+                }}
+                className="btn-3d inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-b-[5px] border-emerald-800 bg-gradient-to-b from-emerald-500 to-emerald-600 px-6 py-3 text-sm font-bold text-white hover:to-emerald-700"
+              >
+                <Play className="h-4 w-4 fill-current" aria-hidden="true" />
+                <span>Hacer semana completa</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   // Summary Screen after completing all challenges
   if (summary) {
@@ -331,7 +436,9 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
 
         <div className="flex-1">
           <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600 tabular-nums">
-            <span>Semana {week.weekNumber} · {week.titleEs}</span>
+            <span>
+              Semana {week.weekNumber} · {mode === 'speaking_only' ? `Speaking (Nivel ${week.moduleId})` : week.titleEs}
+            </span>
             <span>Reto {challengeIdx + 1} / {totalChallenges}</span>
           </div>
           <div className="h-4 w-full overflow-hidden rounded-full border border-slate-300 bg-slate-200/80 shadow-inner">
@@ -428,6 +535,18 @@ export const LessonRunner: React.FC<LessonRunnerProps> = ({
             soundMuted={soundMuted}
             onComplete={handleStepComplete}
             onMistake={handleMistake}
+            onMistakeDetail={handleRecordMistakeDetail}
+          />
+        )}
+        {currentChallenge.type === 'speaking' && (
+          <SpeakingGame
+            key={currentChallenge.id}
+            challenge={currentChallenge}
+            grammarFocus={week.grammarFocus}
+            soundMuted={soundMuted}
+            onComplete={handleStepComplete}
+            onMistake={handleMistake}
+            onPass={handleSpeakingPass}
             onMistakeDetail={handleRecordMistakeDetail}
           />
         )}
